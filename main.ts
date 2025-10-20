@@ -1,6 +1,6 @@
 import { Camera } from './camera'
 import { mlsmpmParticleStructSize, MLSMPMSimulator } from './mls-mpm/mls-mpm'
-import { renderUniformsViews, renderUniformsValues, numParticlesMax } from './common'
+import { renderUniformsViews, renderUniformsValues, numParticlesMax, initCommonGlobals } from './common'
 import { FluidRenderer } from './render/fluidRender'
 import GUI from 'lil-gui';
 
@@ -129,12 +129,13 @@ async function main() {
         camera.reset(cameraDistance, cameraTarget, mlsmpmFov, mlsmpmZoomRate)
     }
 
-    // Initialize modular components
+    // Initialize modular components (keeping only those we'll activate in Tier 2)
     const parameterManager = new ParameterManager();
-    const bufferManager = new BufferManager(device);
-    const uniformManager = new UniformManager(device, bufferManager);
-    const shaderManager = new ShaderManager(device);
+    const uniformManager = new UniformManager(device, new BufferManager(device));
     const physicsEngine = new PhysicsEngine(uniformManager);
+    
+    // Initialize common.ts migration singleton
+    initCommonGlobals(uniformManager);
 
     // Get options from constants
     const numParticlesOptions = PARTICLE_OPTIONS.map(opt => `${opt.label} (${opt.value.toLocaleString()} particles)`);
@@ -187,19 +188,7 @@ async function main() {
     const velocityCapControl = physicsFolder.add(params, 'velocityCap', GUI_CONSTANTS.CONTROL_RANGES.VELOCITY_CAP.min, GUI_CONSTANTS.CONTROL_RANGES.VELOCITY_CAP.max, GUI_CONSTANTS.CONTROL_RANGES.VELOCITY_CAP.step).name('Velocity Cap')
     physicsFolder.close();
 
-    // Add onChange listeners for physics controls
-    viscosityControl.onChange(() => {
-        physicsEngine.setViscosity(params.viscosity);
-    });
-    wallStiffnessControl.onChange(() => {
-        physicsEngine.setWallStiffness(params.wallStiffness);
-    });
-    collisionDampingControl.onChange(() => {
-        physicsEngine.setCollisionDamping(params.collisionDamping);
-    });
-    velocityCapControl.onChange(() => {
-        physicsEngine.setVelocityCap(params.velocityCap);
-    });
+    // Physics controls are handled by the consolidated updatePhysicsProperties function below
 
     const shapeFolder = gui.addFolder(GUI_CONSTANTS.FOLDER_NAMES.SHAPES);
     const shapeControl = shapeFolder.add(params, 'shapeType', shapeOptions).name('Shape Type')
@@ -215,9 +204,42 @@ async function main() {
         updateCameraPosition(shapeTypeMap[value] || 0, initBoxSize, params.sphereRadius)
     })
 
-    // Physics properties change listeners - consolidated to avoid redundancy
+    // Physics properties change listeners - now use PhysicsEngine as authority
     const updatePhysicsProperties = () => {
+        physicsEngine.setViscosity(params.viscosity);
+        physicsEngine.setWallStiffness(params.wallStiffness);
+        physicsEngine.setCollisionDamping(params.collisionDamping);
+        physicsEngine.setVelocityCap(params.velocityCap);
+        // PhysicsEngine now updates the simulator through UniformManager
         mlsmpmSimulator.updatePhysicsProperties(params.viscosity, params.wallStiffness, params.collisionDamping, params.velocityCap);
+    };
+
+    // Consolidated shape parameter change handler
+    const handleShapeParameterChange = () => {
+        mlsmpmSimulator.updateShapeParameters(params);
+        const containerBoxSize = mlsmpmSimulator.calculateRequiredBoxSize(shapeTypeMap[params.shapeType] || 0, params, initBoxSize);
+        initBoxSize = containerBoxSize;
+        realBoxSize = [...initBoxSize];
+        mlsmpmSimulator.changeBoxSize(realBoxSize);
+        mlsmpmSimulator.reset(initBoxSize, mlsmpmNumParticleParams[paramsIdx], shapeTypeMap[params.shapeType] || 0, params);
+        
+        // Update camera position based on new container size
+        const containerDiagonal = Math.sqrt(initBoxSize[0] * initBoxSize[0] + initBoxSize[1] * initBoxSize[1] + initBoxSize[2] * initBoxSize[2]);
+        const cameraDistance = Math.max(containerDiagonal * 1.2, 200);
+        const containerCenter = [initBoxSize[0] / 2, initBoxSize[1] / 2, initBoxSize[2] / 2];
+        camera.reset(cameraDistance, containerCenter, mlsmpmFov, mlsmpmZoomRate);
+    };
+
+    // Specialized handler for sphere parameters (uses updateCameraPosition)
+    const handleSphereParameterChange = () => {
+        mlsmpmSimulator.updateShapeParameters(params);
+        const containerBoxSize = mlsmpmSimulator.calculateRequiredBoxSize(shapeTypeMap[params.shapeType] || 0, params, initBoxSize);
+        initBoxSize = containerBoxSize;
+        realBoxSize = [...initBoxSize];
+        mlsmpmSimulator.changeBoxSize(realBoxSize);
+        mlsmpmSimulator.reset(initBoxSize, mlsmpmNumParticleParams[paramsIdx], shapeTypeMap[params.shapeType] || 0, params);
+        // Update camera position based on sphere radius
+        updateCameraPosition(2, initBoxSize, params.sphereRadius);
     };
     
     viscosityControl.onChange(updatePhysicsProperties);
@@ -231,86 +253,23 @@ async function main() {
     const boxWidthControl = boxFolder.add(params, 'boxWidth', 20, 100, 1).name('Width')
     const boxHeightControl = boxFolder.add(params, 'boxHeight', 20, 80, 1).name('Height')
     const boxDepthControl = boxFolder.add(params, 'boxDepth', 20, 100, 1).name('Depth')
-    boxWidthControl.onChange(() => {
-        // Update shape parameters
-        mlsmpmSimulator.updateShapeParameters(params)
-        // Set simulation box to match container dimensions
-        const containerBoxSize = mlsmpmSimulator.calculateRequiredBoxSize(shapeTypeMap[params.shapeType] || 0, params, initBoxSize)
-        initBoxSize = containerBoxSize
-        realBoxSize = [...initBoxSize]
-        mlsmpmSimulator.changeBoxSize(realBoxSize)
-        mlsmpmSimulator.reset(initBoxSize, mlsmpmNumParticleParams[paramsIdx], shapeTypeMap[params.shapeType] || 0, params)
-    })
-    boxHeightControl.onChange(() => {
-        // Update shape parameters
-        mlsmpmSimulator.updateShapeParameters(params)
-        // Set simulation box to match container dimensions
-        const containerBoxSize = mlsmpmSimulator.calculateRequiredBoxSize(shapeTypeMap[params.shapeType] || 0, params, initBoxSize)
-        initBoxSize = containerBoxSize
-        realBoxSize = [...initBoxSize]
-        mlsmpmSimulator.changeBoxSize(realBoxSize)
-        mlsmpmSimulator.reset(initBoxSize, mlsmpmNumParticleParams[paramsIdx], shapeTypeMap[params.shapeType] || 0, params)
-    })
-    boxDepthControl.onChange(() => {
-        // Update shape parameters
-        mlsmpmSimulator.updateShapeParameters(params)
-        // Set simulation box to match container dimensions
-        const containerBoxSize = mlsmpmSimulator.calculateRequiredBoxSize(shapeTypeMap[params.shapeType] || 0, params, initBoxSize)
-        initBoxSize = containerBoxSize
-        realBoxSize = [...initBoxSize]
-        mlsmpmSimulator.changeBoxSize(realBoxSize)
-        mlsmpmSimulator.reset(initBoxSize, mlsmpmNumParticleParams[paramsIdx], shapeTypeMap[params.shapeType] || 0, params)
-    })
+    boxWidthControl.onChange(handleShapeParameterChange)
+    boxHeightControl.onChange(handleShapeParameterChange)
+    boxDepthControl.onChange(handleShapeParameterChange)
     boxFolder.close();
     
     // Cylinder controls
     const cylinderFolder = shapeFolder.addFolder('Cylinder Parameters');
     const cylinderRadiusControl = cylinderFolder.add(params, 'cylinderRadius', 10, 50, 1).name('Radius')
     const cylinderHeightControl = cylinderFolder.add(params, 'cylinderHeight', 20, 80, 1).name('Height')
-    cylinderRadiusControl.onChange(() => {
-        mlsmpmSimulator.updateShapeParameters(params)
-        // Set simulation box to match container dimensions
-        const containerBoxSize = mlsmpmSimulator.calculateRequiredBoxSize(shapeTypeMap[params.shapeType] || 0, params, initBoxSize)
-        initBoxSize = containerBoxSize
-        realBoxSize = [...initBoxSize]
-        mlsmpmSimulator.changeBoxSize(realBoxSize)
-        mlsmpmSimulator.reset(initBoxSize, mlsmpmNumParticleParams[paramsIdx], shapeTypeMap[params.shapeType] || 0, params)
-        // Update camera position based on new container size
-        const containerDiagonal = Math.sqrt(initBoxSize[0] * initBoxSize[0] + initBoxSize[1] * initBoxSize[1] + initBoxSize[2] * initBoxSize[2])
-        const cameraDistance = Math.max(containerDiagonal * 1.2, 200)
-        const containerCenter = [initBoxSize[0] / 2, initBoxSize[1] / 2, initBoxSize[2] / 2]
-        camera.reset(cameraDistance, containerCenter, mlsmpmFov, mlsmpmZoomRate)
-    })
-    cylinderHeightControl.onChange(() => {
-        mlsmpmSimulator.updateShapeParameters(params)
-        // Set simulation box to match container dimensions
-        const containerBoxSize = mlsmpmSimulator.calculateRequiredBoxSize(shapeTypeMap[params.shapeType] || 0, params, initBoxSize)
-        initBoxSize = containerBoxSize
-        realBoxSize = [...initBoxSize]
-        mlsmpmSimulator.changeBoxSize(realBoxSize)
-        mlsmpmSimulator.reset(initBoxSize, mlsmpmNumParticleParams[paramsIdx], shapeTypeMap[params.shapeType] || 0, params)
-        // Update camera position based on new container size
-        const containerDiagonal = Math.sqrt(initBoxSize[0] * initBoxSize[0] + initBoxSize[1] * initBoxSize[1] + initBoxSize[2] * initBoxSize[2])
-        const cameraDistance = Math.max(containerDiagonal * 1.2, 200)
-        const containerCenter = [initBoxSize[0] / 2, initBoxSize[1] / 2, initBoxSize[2] / 2]
-        camera.reset(cameraDistance, containerCenter, mlsmpmFov, mlsmpmZoomRate)
-    })
+    cylinderRadiusControl.onChange(handleShapeParameterChange)
+    cylinderHeightControl.onChange(handleShapeParameterChange)
     cylinderFolder.close();
     
     // Sphere controls
     const sphereFolder = shapeFolder.addFolder('Sphere Parameters');
     const sphereRadiusControl = sphereFolder.add(params, 'sphereRadius', 10, 40, 1).name('Radius')
-    sphereRadiusControl.onChange(() => {
-        mlsmpmSimulator.updateShapeParameters(params)
-        // Set simulation box to match container dimensions
-        const containerBoxSize = mlsmpmSimulator.calculateRequiredBoxSize(shapeTypeMap[params.shapeType] || 0, params, initBoxSize)
-        initBoxSize = containerBoxSize
-        realBoxSize = [...initBoxSize]
-        mlsmpmSimulator.changeBoxSize(realBoxSize)
-        mlsmpmSimulator.reset(initBoxSize, mlsmpmNumParticleParams[paramsIdx], shapeTypeMap[params.shapeType] || 0, params)
-        // Update camera position based on sphere radius
-        updateCameraPosition(2, initBoxSize, params.sphereRadius)
-    })
+    sphereRadiusControl.onChange(handleSphereParameterChange)
     sphereFolder.close();
     
     // Cone controls
@@ -318,34 +277,8 @@ async function main() {
     const coneRadiusControl = coneFolder.add(params, 'coneRadius', 10, 50, 1).name('Base Radius')
     const coneHeightControl = coneFolder.add(params, 'coneHeight', 20, 80, 1).name('Height')
     const coneTaperControl = coneFolder.add(params, 'coneTaper', 0.0, 1.0, 0.01).name('Taper')
-    coneRadiusControl.onChange(() => {
-        mlsmpmSimulator.updateShapeParameters(params)
-        // Set simulation box to match container dimensions
-        const containerBoxSize = mlsmpmSimulator.calculateRequiredBoxSize(shapeTypeMap[params.shapeType] || 0, params, initBoxSize)
-        initBoxSize = containerBoxSize
-        realBoxSize = [...initBoxSize]
-        mlsmpmSimulator.changeBoxSize(realBoxSize)
-        mlsmpmSimulator.reset(initBoxSize, mlsmpmNumParticleParams[paramsIdx], shapeTypeMap[params.shapeType] || 0, params)
-        // Update camera position based on new container size
-        const containerDiagonal = Math.sqrt(initBoxSize[0] * initBoxSize[0] + initBoxSize[1] * initBoxSize[1] + initBoxSize[2] * initBoxSize[2])
-        const cameraDistance = Math.max(containerDiagonal * 1.2, 200)
-        const containerCenter = [initBoxSize[0] / 2, initBoxSize[1] / 2, initBoxSize[2] / 2]
-        camera.reset(cameraDistance, containerCenter, mlsmpmFov, mlsmpmZoomRate)
-    })
-    coneHeightControl.onChange(() => {
-        mlsmpmSimulator.updateShapeParameters(params)
-        // Set simulation box to match container dimensions
-        const containerBoxSize = mlsmpmSimulator.calculateRequiredBoxSize(shapeTypeMap[params.shapeType] || 0, params, initBoxSize)
-        initBoxSize = containerBoxSize
-        realBoxSize = [...initBoxSize]
-        mlsmpmSimulator.changeBoxSize(realBoxSize)
-        mlsmpmSimulator.reset(initBoxSize, mlsmpmNumParticleParams[paramsIdx], shapeTypeMap[params.shapeType] || 0, params)
-        // Update camera position based on new container size
-        const containerDiagonal = Math.sqrt(initBoxSize[0] * initBoxSize[0] + initBoxSize[1] * initBoxSize[1] + initBoxSize[2] * initBoxSize[2])
-        const cameraDistance = Math.max(containerDiagonal * 1.2, 200)
-        const containerCenter = [initBoxSize[0] / 2, initBoxSize[1] / 2, initBoxSize[2] / 2]
-        camera.reset(cameraDistance, containerCenter, mlsmpmFov, mlsmpmZoomRate)
-    })
+    coneRadiusControl.onChange(handleShapeParameterChange)
+    coneHeightControl.onChange(handleShapeParameterChange)
     coneTaperControl.onChange(() => {
         mlsmpmSimulator.updateShapeParameters(params)
     })
@@ -425,12 +358,12 @@ async function main() {
         format: 'r32float',
     });
     const depthMapTextureView = depthMapTexture.createView()
-    const mlsmpmSimulator = new MLSMPMSimulator(particleBuffer, posvelBuffer, mlsmpmDiameter, device, renderUniformBuffer, depthMapTextureView, canvas, maxGridCount, densityGridBuffer, initBoxSizeBuffer, fixedPointMultiplier, shapeParamsBuffer)
+    const mlsmpmSimulator = new MLSMPMSimulator(particleBuffer, posvelBuffer, mlsmpmDiameter, device, renderUniformBuffer, depthMapTextureView, canvas, maxGridCount, densityGridBuffer, initBoxSizeBuffer, fixedPointMultiplier, shapeParamsBuffer, uniformManager)
     const mlsmpmRenderer = new FluidRenderer(device, canvas, presentationFormat, mlsmpmRadius, mlsmpmFov, posvelBuffer, renderUniformBuffer,  cubemapTextureView, depthMapTextureView, densityGridBuffer, fixedPointMultiplier, initBoxSizeBuffer)
 
     console.log("simulator initialization done")
 
-    const camera = new Camera(canvasElement)
+    const camera = new Camera(canvasElement, uniformManager)
 
     // デバイスロストの監視
     let errorLog = document.getElementById('error-reason') as HTMLSpanElement

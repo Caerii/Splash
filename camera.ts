@@ -1,5 +1,6 @@
 import { mat4 } from 'wgpu-matrix'
 import { renderUniformsValues, renderUniformsViews } from './common'
+import { UniformManager } from './buffers/UniformManager'
 
 export class Camera {
     isDragging: boolean
@@ -22,9 +23,11 @@ export class Camera {
     zoomRate: number
 
     canvas: HTMLCanvasElement
+    uniformManager?: UniformManager
 
-    constructor (canvas: HTMLCanvasElement) {
+    constructor (canvas: HTMLCanvasElement, uniformManager?: UniformManager) {
         this.canvas = canvas;
+        this.uniformManager = uniformManager;
 
         this.canvas.addEventListener("mousedown", (event: MouseEvent) => {
             this.isDragging = true;
@@ -104,8 +107,13 @@ export class Camera {
             [0, 1, 0], // up
         )
 
-        renderUniformsViews.view_matrix.set(view)
-        renderUniformsViews.inv_view_matrix.set(mat4.inverse(view))
+        if (this.uniformManager) {
+            this.uniformManager.updateMatrices({ view, invView: mat4.inverse(view) });
+        } else {
+            // Fallback for migration period
+            renderUniformsViews.view_matrix.set(view);
+            renderUniformsViews.inv_view_matrix.set(mat4.inverse(view));
+        }
     }
 
     calcMouseVelocity() {

@@ -558,7 +558,7 @@ export class FluidRenderer {
             colorAttachments: [
                 {
                     view: this.tmpOutputTextureView,
-                    clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+                    clearValue: { r: 1.0, g: 1.0, b: 1.0, a: 1.0 },
                     loadOp: 'clear',
                     storeOp: 'store',
                 },
@@ -569,7 +569,7 @@ export class FluidRenderer {
             colorAttachments: [
                 {
                     view: context.getCurrentTexture().createView(),
-                    clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+                    clearValue: { r: 1.0, g: 1.0, b: 1.0, a: 1.0 },
                     loadOp: 'clear',
                     storeOp: 'store',
                 },
@@ -619,7 +619,7 @@ export class FluidRenderer {
             colorAttachments: [
                 { 
                     view: context.getCurrentTexture().createView(),
-                    clearValue: { r: 0.7, g: 0.7, b: 0.75, a: 1.0 },
+                    clearValue: { r: 1.0, g: 1.0, b: 1.0, a: 1.0 },
                     loadOp: 'clear',
                     storeOp: 'store',
                 },

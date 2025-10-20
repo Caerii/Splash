@@ -38,7 +38,7 @@ fn getViewPosFromTexCoord(texCoord: vec2f, iuv: vec2f) -> vec3f {
 }
 
 fn gamma(v: vec3f) -> vec3f {
-    return pow(v, vec3(1.0 / 0.9));
+    return pow(v * 1.2, vec3(1.0 / 0.8)); // Increased brightness and adjusted gamma
 }
 
 fn calcReflactedTexCoord(surfacePosView: vec3f, refractionDirView: vec3f, thickness: f32) -> vec2f {
@@ -94,10 +94,10 @@ fn fs(input: FragmentInput) -> @location(0) vec4f {
 
     var normal: vec3f = -normalize(cross(ddx, ddy)); 
     var rayDirView = normalize(surfacePosView);
-    var lightDirView = normalize((uniforms.viewMatrix * vec4f(0.2, 0.0, 1, 0.)).xyz);
+    var lightDirView = normalize((uniforms.viewMatrix * vec4f(0.1, 1.0, 0.5, 0.)).xyz);
     var H: vec3f        = normalize(lightDirView - rayDirView);
-    var specular: f32   = pow(max(0.0, dot(H, normal)), 300.);
-    var diffuse: f32  = max(0.0, dot(lightDirView, normal)) * 1.0;
+    var specular: f32   = pow(max(0.0, dot(H, normal)), 300.) * 2.0;
+    var diffuse: f32  = max(0.0, dot(lightDirView, normal)) * 3.0;
 
     var transmittance: vec3f = exp(-density * thickness * (1.0 - diffuseColor)); 
     var refractionDirView: vec3f = normalize(refract(rayDirView, normal, 1.0 / 1.333));
@@ -123,7 +123,7 @@ fn fs(input: FragmentInput) -> @location(0) vec4f {
     // fresnel = select(fresnel, 0.3 * fresnel, reflectionDirWorld.y < 0.);
     // fresnelBiased = select(fresnelBiased, 0.3 * fresnelBiased, reflectionDirWorld.y < 0.);
 
-    var finalColor = 0.0 * specular + mix(refractionColor, reflectionColor, fresnelBiased) + 0.1 * fresnel;
+    var finalColor = 0.5 * specular + mix(refractionColor, reflectionColor, fresnelBiased) * 1.5 + 0.3 * fresnel;
 
     return vec4f(gamma(finalColor), 1.0);
 }

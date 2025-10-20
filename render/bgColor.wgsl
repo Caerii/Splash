@@ -46,7 +46,7 @@ fn fs(input: FragmentInput) -> @location(0) vec4f {
     let rayDirWorld = normalize((uniforms.invViewMatrix * vec4f(computeViewPosFromUVDepth(input.uv, 1.0), 0.)).xyz); // depth は適当
     let bgColor = textureSampleLevel(envmapTexture, textureSampler, rayDirWorld, 0.).rgb;
     
-    // Make background completely transparent but keep environment map for lighting
+    // Make background white but keep environment map for lighting
     // The environment map is still available for lighting in other shaders
-    return vec4f(0.0, 0.0, 0.0, 0.0); // Completely transparent
+    return vec4f(1.0, 1.0, 1.0, 1.0); // White background
 }

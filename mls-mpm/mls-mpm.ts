@@ -9,11 +9,13 @@ import clearDensityGrid from './clearDensityGrid.wgsl'
 
 import { numParticlesMax, renderUniformsViews, physicsUniformsValues, physicsUniformsViews } from '../common'
 import { BUFFER_SIZES } from '../utils/Constants'
+import { UniformManager } from '../buffers/UniformManager'
 
 export const mlsmpmParticleStructSize = 80
 
 export class MLSMPMSimulator {
     cellStructSize = 16;
+    uniformManager: UniformManager
     realBoxSizeBuffer: GPUBuffer
     numParticlesBuffer: GPUBuffer
     densityBuffer: GPUBuffer
@@ -106,9 +108,10 @@ export class MLSMPMSimulator {
     constructor (particleBuffer: GPUBuffer, posvelBuffer: GPUBuffer, renderDiameter: number, device: GPUDevice, 
         renderUniformBuffer: GPUBuffer, depthMapTextureView: GPUTextureView, canvas: HTMLCanvasElement, 
         maxGridCount: number, densityGridBuffer: GPUBuffer, initBoxSizeBuffer: GPUBuffer, fixedPointMultiplier: number,
-        shapeParamsBuffer: GPUBuffer) 
+        shapeParamsBuffer: GPUBuffer, uniformManager: UniformManager) 
     {
         this.device = device
+        this.uniformManager = uniformManager
         this.renderDiameter = renderDiameter
         this.frameCount = 0
         this.spawned = false
@@ -692,11 +695,9 @@ export class MLSMPMSimulator {
     }
 
     updatePhysicsProperties(viscosity: number, wallStiffness: number, collisionDamping: number, velocityCap: number) {
-        physicsUniformsViews.viscosity[0] = viscosity;
-        physicsUniformsViews.wallStiffness[0] = wallStiffness;
-        physicsUniformsViews.collisionDamping[0] = collisionDamping;
-        physicsUniformsViews.velocityCap[0] = velocityCap;
-        this.device.queue.writeBuffer(this.physicsPropertiesBuffer, 0, physicsUniformsValues);
+        // Use UniformManager as single source of truth
+        this.uniformManager.updatePhysicsProperties(viscosity, wallStiffness, collisionDamping, velocityCap);
+        this.device.queue.writeBuffer(this.physicsPropertiesBuffer, 0, this.uniformManager.physicsUniformsValues);
     }
 
     updateShapeParameters(shapeParams: any) {
