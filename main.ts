@@ -303,6 +303,40 @@ async function main() {
     venturiHelixPitchControl.onChange(handleShapeParameterChange)
     venturiFolder.close();
     
+    // Torus controls
+    const torusFolder = shapeFolder.addFolder('Torus Parameters');
+    const torusMajorRadiusControl = torusFolder.add(params, 'torusMajorRadius', 5, 60, 1).name('Major Radius')
+    const torusMinorRadiusControl = torusFolder.add(params, 'torusMinorRadius', 1, 30, 1).name('Minor Radius')
+    const torusHeightControl = torusFolder.add(params, 'torusHeight', 10, 120, 1).name('Height')
+    const torusKnotCountControl = torusFolder.add(params, 'torusKnotCount', 0, 8, 1).name('Knot Count')
+    const torusKnotIntensityControl = torusFolder.add(params, 'torusKnotIntensity', 0.0, 3.0, 0.01).name('Knot Intensity')
+    const torusTwistAmountControl = torusFolder.add(params, 'torusTwistAmount', 0.0, 10.0, 0.01).name('Twist Amount')
+    
+    torusMajorRadiusControl.onChange(handleShapeParameterChange)
+    torusMinorRadiusControl.onChange(handleShapeParameterChange)
+    torusHeightControl.onChange(handleShapeParameterChange)
+    torusKnotCountControl.onChange(handleShapeParameterChange)
+    torusKnotIntensityControl.onChange(handleShapeParameterChange)
+    torusTwistAmountControl.onChange(handleShapeParameterChange)
+    torusFolder.close();
+    
+    // Chemotaxis controls
+    const chemotaxisFolder = gui.addFolder('Chemotaxis');
+    const chemotaxisEnabledControl = chemotaxisFolder.add(params, 'chemotaxisEnabled').name('Enabled')
+    const chemotaxisStrengthControl = chemotaxisFolder.add(params, 'chemotaxisStrength', 0.0, 10.0, 0.01).name('Strength')
+    const chemotaxisDiffusionRateControl = chemotaxisFolder.add(params, 'chemotaxisDiffusionRate', 0.0, 5.0, 0.01).name('Diffusion Rate')
+    const chemotaxisDecayRateControl = chemotaxisFolder.add(params, 'chemotaxisDecayRate', 0.0, 2.0, 0.01).name('Decay Rate')
+    const chemotaxisSourceRadiusControl = chemotaxisFolder.add(params, 'chemotaxisSourceRadius', 0.1, 200.0, 0.1).name('Source Radius')
+    const chemotaxisAttractionControl = chemotaxisFolder.add(params, 'chemotaxisAttraction', -5.0, 5.0, 0.01).name('Attraction')
+    
+    chemotaxisEnabledControl.onChange(handleShapeParameterChange)
+    chemotaxisStrengthControl.onChange(handleShapeParameterChange)
+    chemotaxisDiffusionRateControl.onChange(handleShapeParameterChange)
+    chemotaxisDecayRateControl.onChange(handleShapeParameterChange)
+    chemotaxisSourceRadiusControl.onChange(handleShapeParameterChange)
+    chemotaxisAttractionControl.onChange(handleShapeParameterChange)
+    chemotaxisFolder.close();
+    
     shapeFolder.close();
 
     document.addEventListener('keydown', (event) => {

@@ -73,8 +73,20 @@ export class UniformManager {
             venturiThroatPosition: new Float32Array(this.shapeParamsValues, 52, 1),
             venturiHelixCount: new Float32Array(this.shapeParamsValues, 56, 1),
             venturiHelixPitch: new Float32Array(this.shapeParamsValues, 60, 1),
+            torusMajorRadius: new Float32Array(this.shapeParamsValues, 64, 1),
+            torusMinorRadius: new Float32Array(this.shapeParamsValues, 68, 1),
+            torusHeight: new Float32Array(this.shapeParamsValues, 72, 1),
+            torusKnotCount: new Float32Array(this.shapeParamsValues, 76, 1),
+            torusKnotIntensity: new Float32Array(this.shapeParamsValues, 80, 1),
+            torusTwistAmount: new Float32Array(this.shapeParamsValues, 84, 1),
+            chemotaxisEnabled: new Float32Array(this.shapeParamsValues, 88, 1),
+            chemotaxisStrength: new Float32Array(this.shapeParamsValues, 92, 1),
+            chemotaxisDiffusionRate: new Float32Array(this.shapeParamsValues, 96, 1),
+            chemotaxisDecayRate: new Float32Array(this.shapeParamsValues, 100, 1),
+            chemotaxisSourceRadius: new Float32Array(this.shapeParamsValues, 104, 1),
+            chemotaxisAttraction: new Float32Array(this.shapeParamsValues, 108, 1),
             // Padding for alignment
-            padding: new Float32Array(this.shapeParamsValues, 64, 1),
+            padding: new Float32Array(this.shapeParamsValues, 112, 2),
         };
 
         this.setDefaultValues();
@@ -109,6 +121,18 @@ export class UniformManager {
         this.shapeParamsViews.venturiThroatPosition.set([CONTAINERS.VENTURI.DEFAULT_THROAT_POSITION]);
         this.shapeParamsViews.venturiHelixCount.set([CONTAINERS.VENTURI.DEFAULT_HELIX_COUNT]);
         this.shapeParamsViews.venturiHelixPitch.set([CONTAINERS.VENTURI.DEFAULT_HELIX_PITCH]);
+        this.shapeParamsViews.torusMajorRadius.set([CONTAINERS.TORUS.DEFAULT_MAJOR_RADIUS]);
+        this.shapeParamsViews.torusMinorRadius.set([CONTAINERS.TORUS.DEFAULT_MINOR_RADIUS]);
+        this.shapeParamsViews.torusHeight.set([CONTAINERS.TORUS.DEFAULT_HEIGHT]);
+        this.shapeParamsViews.torusKnotCount.set([CONTAINERS.TORUS.DEFAULT_KNOT_COUNT]);
+        this.shapeParamsViews.torusKnotIntensity.set([CONTAINERS.TORUS.DEFAULT_KNOT_INTENSITY]);
+        this.shapeParamsViews.torusTwistAmount.set([CONTAINERS.TORUS.DEFAULT_TWIST_AMOUNT]);
+        this.shapeParamsViews.chemotaxisEnabled.set([CONTAINERS.CHEMOTAXIS.DEFAULT_ENABLED ? 1.0 : 0.0]);
+        this.shapeParamsViews.chemotaxisStrength.set([CONTAINERS.CHEMOTAXIS.DEFAULT_STRENGTH]);
+        this.shapeParamsViews.chemotaxisDiffusionRate.set([CONTAINERS.CHEMOTAXIS.DEFAULT_DIFFUSION_RATE]);
+        this.shapeParamsViews.chemotaxisDecayRate.set([CONTAINERS.CHEMOTAXIS.DEFAULT_DECAY_RATE]);
+        this.shapeParamsViews.chemotaxisSourceRadius.set([CONTAINERS.CHEMOTAXIS.DEFAULT_SOURCE_RADIUS]);
+        this.shapeParamsViews.chemotaxisAttraction.set([CONTAINERS.CHEMOTAXIS.DEFAULT_ATTRACTION]);
     }
 
     // Render uniform methods
@@ -181,6 +205,18 @@ export class UniformManager {
         this.shapeParamsViews.venturiThroatPosition.set([shapeParams.venturiThroatPosition]);
         this.shapeParamsViews.venturiHelixCount.set([shapeParams.venturiHelixCount]);
         this.shapeParamsViews.venturiHelixPitch.set([shapeParams.venturiHelixPitch]);
+        this.shapeParamsViews.torusMajorRadius.set([shapeParams.torusMajorRadius]);
+        this.shapeParamsViews.torusMinorRadius.set([shapeParams.torusMinorRadius]);
+        this.shapeParamsViews.torusHeight.set([shapeParams.torusHeight]);
+        this.shapeParamsViews.torusKnotCount.set([shapeParams.torusKnotCount]);
+        this.shapeParamsViews.torusKnotIntensity.set([shapeParams.torusKnotIntensity]);
+        this.shapeParamsViews.torusTwistAmount.set([shapeParams.torusTwistAmount]);
+        this.shapeParamsViews.chemotaxisEnabled.set([shapeParams.chemotaxisEnabled ? 1.0 : 0.0]);
+        this.shapeParamsViews.chemotaxisStrength.set([shapeParams.chemotaxisStrength]);
+        this.shapeParamsViews.chemotaxisDiffusionRate.set([shapeParams.chemotaxisDiffusionRate]);
+        this.shapeParamsViews.chemotaxisDecayRate.set([shapeParams.chemotaxisDecayRate]);
+        this.shapeParamsViews.chemotaxisSourceRadius.set([shapeParams.chemotaxisSourceRadius]);
+        this.shapeParamsViews.chemotaxisAttraction.set([shapeParams.chemotaxisAttraction]);
         this.bufferManager.writeBuffer('shapeParams', this.shapeParamsValues);
     }
 

@@ -45,11 +45,69 @@ struct ShapeParams {
     venturiThroatPosition: f32,
     venturiHelixCount: f32,
     venturiHelixPitch: f32,
+    torusMajorRadius: f32,
+    torusMinorRadius: f32,
+    torusHeight: f32,
+    torusKnotCount: f32,
+    torusKnotIntensity: f32,
+    torusTwistAmount: f32,
+    chemotaxisEnabled: f32,
+    chemotaxisStrength: f32,
+    chemotaxisDiffusionRate: f32,
+    chemotaxisDecayRate: f32,
+    chemotaxisSourceRadius: f32,
+    chemotaxisAttraction: f32,
     padding: f32,
 }
 
 fn decodeFixedPoint(fixedPoint: i32) -> f32 {
     return f32(fixedPoint) / fixedPointMultiplier;
+}
+
+fn calculateChemicalGradient(pos: vec3f, center: vec3f, shapeParams: ShapeParams) -> vec3f {
+    // Create chemical sources at the center and edges
+    let source1 = center; // Center source
+    let source2 = center + vec3f(realBoxSize.x * 0.3, 0.0, 0.0); // Right source
+    let source3 = center + vec3f(-realBoxSize.x * 0.3, 0.0, 0.0); // Left source
+    
+    // Calculate chemical concentration at particle position
+    let dist1 = length(pos - source1);
+    let dist2 = length(pos - source2);
+    let dist3 = length(pos - source3);
+    
+    let concentration1 = exp(-dist1 / shapeParams.chemotaxisSourceRadius);
+    let concentration2 = exp(-dist2 / shapeParams.chemotaxisSourceRadius);
+    let concentration3 = exp(-dist3 / shapeParams.chemotaxisSourceRadius);
+    
+    let total_concentration = concentration1 + concentration2 + concentration3;
+    
+    // Calculate gradient using finite differences
+    let eps = 0.1;
+    let grad_x = (calculateChemicalConcentration(pos + vec3f(eps, 0.0, 0.0), center, shapeParams) - 
+                  calculateChemicalConcentration(pos - vec3f(eps, 0.0, 0.0), center, shapeParams)) / (2.0 * eps);
+    let grad_y = (calculateChemicalConcentration(pos + vec3f(0.0, eps, 0.0), center, shapeParams) - 
+                  calculateChemicalConcentration(pos - vec3f(0.0, eps, 0.0), center, shapeParams)) / (2.0 * eps);
+    let grad_z = (calculateChemicalConcentration(pos + vec3f(0.0, 0.0, eps), center, shapeParams) - 
+                  calculateChemicalConcentration(pos - vec3f(0.0, 0.0, eps), center, shapeParams)) / (2.0 * eps);
+    
+    return normalize(vec3f(grad_x, grad_y, grad_z));
+}
+
+fn calculateChemicalConcentration(pos: vec3f, center: vec3f, shapeParams: ShapeParams) -> f32 {
+    // Create chemical sources
+    let source1 = center;
+    let source2 = center + vec3f(realBoxSize.x * 0.3, 0.0, 0.0);
+    let source3 = center + vec3f(-realBoxSize.x * 0.3, 0.0, 0.0);
+    
+    let dist1 = length(pos - source1);
+    let dist2 = length(pos - source2);
+    let dist3 = length(pos - source3);
+    
+    let concentration1 = exp(-dist1 / shapeParams.chemotaxisSourceRadius);
+    let concentration2 = exp(-dist2 / shapeParams.chemotaxisSourceRadius);
+    let concentration3 = exp(-dist3 / shapeParams.chemotaxisSourceRadius);
+    
+    return concentration1 + concentration2 + concentration3;
 }
 
 
@@ -117,6 +175,19 @@ fn g2p(@builtin(global_invocation_id) id: vec3<u32>) {
         }
         
         particles[id.x].position += particles[id.x].v * dt;
+        
+        // Apply chemotaxis forces if enabled
+        if (shapeParams.chemotaxisEnabled > 0.5) {
+            let center = realBoxSize * 0.5;
+            let particle_pos = particles[id.x].position;
+            
+            // Calculate chemical gradient at particle position
+            let chemical_gradient = calculateChemicalGradient(particle_pos, center, shapeParams);
+            
+            // Apply chemotaxis force
+            let chemotaxis_force = chemical_gradient * shapeParams.chemotaxisStrength * shapeParams.chemotaxisAttraction;
+            particles[id.x].v += chemotaxis_force * dt;
+        }
         
         // Apply boundary conditions (configurable)
         let wallStiffness = physicsProps.wallStiffness;
@@ -334,6 +405,67 @@ fn g2p(@builtin(global_invocation_id) id: vec3<u32>) {
                     // Move particle back to helix surface
                     particles[id.x].position.x = helixCenterX + normal.x * helixRadius;
                     particles[id.x].position.z = helixCenterZ + normal.y * helixRadius;
+                    
+                    // Apply collision response
+                    let velocity_magnitude = length(particles[id.x].v);
+                    if (velocity_magnitude > 0.1) {
+                        let normal_velocity = dot(particles[id.x].v.xz, normal);
+                        let tangential_velocity = particles[id.x].v.xz - normal * normal_velocity;
+                        
+                        // Preserve tangential velocity, reduce normal velocity
+                        particles[id.x].v.x = tangential_velocity.x * 0.95 + normal.x * normal_velocity * 0.1;
+                        particles[id.x].v.z = tangential_velocity.y * 0.95 + normal.y * normal_velocity * 0.1;
+                        particles[id.x].v.x += wallStiffness * normal.x * penetration * 0.5;
+                        particles[id.x].v.z += wallStiffness * normal.y * penetration * 0.5;
+                    }
+                }
+                
+                if (x_n.y < 3.0) { 
+                    particles[id.x].v.y += wallStiffness * (3.0 - x_n.y); 
+                    particles[id.x].v.y *= physicsProps.collisionDamping * 0.5;  // Bottom damping (50% of normal)
+                }
+                if (x_n.y > height) { 
+                    particles[id.x].v.y += wallStiffness * (height - x_n.y); 
+                    particles[id.x].v.y *= physicsProps.collisionDamping;  // Configurable damping
+                }
+            }
+            case 5u: { // Knotted Torus
+                let center = realBoxSize * 0.5;
+                let majorRadius = shapeParams.torusMajorRadius;
+                let minorRadius = shapeParams.torusMinorRadius;
+                let height = shapeParams.torusHeight;
+                let knotCount = shapeParams.torusKnotCount;
+                let knotIntensity = shapeParams.torusKnotIntensity;
+                let twistAmount = shapeParams.torusTwistAmount;
+                
+                // Calculate knotted torus position
+                let dist_from_center = length(x_n.xz - center.xz);
+                let angle = atan2(x_n.z - center.z, x_n.x - center.x);
+                let height_factor = x_n.y / height;
+                
+                // Apply knotting based on knot count
+                var knot_offset = 0.0;
+                if (knotCount > 0.0) {
+                    let knot_angle = angle * knotCount + height_factor * twistAmount * 6.28318;
+                    knot_offset = sin(knot_angle) * knotIntensity * minorRadius * 0.5;
+                }
+                
+                // Calculate the effective major radius with knotting
+                let effective_major_radius = majorRadius + knot_offset;
+                let dist_from_torus_center = abs(dist_from_center - effective_major_radius);
+                
+                // If particle is outside the knotted torus, apply boundary force
+                if (dist_from_torus_center > minorRadius) {
+                    // Find the closest point on the knotted torus surface
+                    let torus_center_x = center.x + effective_major_radius * normalize(x_n.xz - center.xz).x;
+                    let torus_center_z = center.z + effective_major_radius * normalize(x_n.xz - center.xz).y;
+                    
+                    let normal = normalize(x_n.xz - vec2f(torus_center_x, torus_center_z));
+                    let penetration = dist_from_torus_center - minorRadius;
+                    
+                    // Move particle back to knotted torus surface
+                    particles[id.x].position.x = torus_center_x + normal.x * minorRadius;
+                    particles[id.x].position.z = torus_center_z + normal.y * minorRadius;
                     
                     // Apply collision response
                     let velocity_magnitude = length(particles[id.x].v);

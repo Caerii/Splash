@@ -79,6 +79,44 @@ export const CONTAINERS = {
         MIN_HELIX_PITCH: 0.1,
         MAX_HELIX_PITCH: 0.8,
     },
+    TORUS: {
+        DEFAULT_MAJOR_RADIUS: 25,
+        DEFAULT_MINOR_RADIUS: 8,
+        DEFAULT_HEIGHT: 50,
+        DEFAULT_KNOT_COUNT: 0,
+        DEFAULT_KNOT_INTENSITY: 0.0,
+        DEFAULT_TWIST_AMOUNT: 0.0,
+        MIN_MAJOR_RADIUS: 5,
+        MAX_MAJOR_RADIUS: 60,
+        MIN_MINOR_RADIUS: 1,
+        MAX_MINOR_RADIUS: 30,
+        MIN_HEIGHT: 10,
+        MAX_HEIGHT: 120,
+        MIN_KNOT_COUNT: 0,
+        MAX_KNOT_COUNT: 8,
+        MIN_KNOT_INTENSITY: 0.0,
+        MAX_KNOT_INTENSITY: 3.0,
+        MIN_TWIST_AMOUNT: 0.0,
+        MAX_TWIST_AMOUNT: 10.0,
+    },
+    CHEMOTAXIS: {
+        DEFAULT_ENABLED: false,
+        DEFAULT_STRENGTH: 0.5,
+        DEFAULT_DIFFUSION_RATE: 0.1,
+        DEFAULT_DECAY_RATE: 0.05,
+        DEFAULT_SOURCE_RADIUS: 10.0,
+        DEFAULT_ATTRACTION: 1.0,
+        MIN_STRENGTH: 0.0,
+        MAX_STRENGTH: 10.0,
+        MIN_DIFFUSION_RATE: 0.0,
+        MAX_DIFFUSION_RATE: 5.0,
+        MIN_DECAY_RATE: 0.0,
+        MAX_DECAY_RATE: 2.0,
+        MIN_SOURCE_RADIUS: 0.1,
+        MAX_SOURCE_RADIUS: 200.0,
+        MIN_ATTRACTION: -5.0,
+        MAX_ATTRACTION: 5.0,
+    },
 } as const;
 
 // Particle Count Options
@@ -92,7 +130,7 @@ export const PARTICLE_OPTIONS = [
 ];
 
 // Shape Options
-export const SHAPE_OPTIONS = ['Box', 'Cylinder', 'Sphere', 'Cone', 'Venturi'];
+export const SHAPE_OPTIONS = ['Box', 'Cylinder', 'Sphere', 'Cone', 'Venturi', 'Torus'];
 
 // Buffer Sizes
 export const BUFFER_SIZES = {
@@ -102,7 +140,7 @@ export const BUFFER_SIZES = {
     DT_BUFFER: 4,
     SHAPE_TYPE: 4,
     NUM_PARTICLES: 4,
-    SHAPE_PARAMS: 68, // 17 f32 values for all shape parameters
+    SHAPE_PARAMS: 120, // 30 f32 values for all shape parameters (added chemotaxis + padding)
 } as const;
 
 // WebGPU Limits

@@ -633,6 +633,44 @@ export class MLSMPMSimulator {
                 }
                 break;
                 
+            case 5: // Torus
+                const torusMajorRadius = shapeParams?.torusMajorRadius ? 
+                    shapeParams.torusMajorRadius : 
+                    Math.min(initBoxSize[0], initBoxSize[2]) * 0.4;
+                const torusMinorRadius = shapeParams?.torusMinorRadius ? 
+                    shapeParams.torusMinorRadius : 
+                    Math.min(initBoxSize[0], initBoxSize[2]) * 0.12;
+                const torusHeight = shapeParams?.torusHeight ? 
+                    shapeParams.torusHeight : 
+                    initBoxSize[1] * 0.8;
+                
+                // Generate particles to fill the torus shape
+                const torusCenter = [center[0], center[1], center[2]];
+                const outerRadius = torusMajorRadius + torusMinorRadius;
+                
+                // Generate particles in a grid pattern and check if they're inside the torus
+                const gridSize = Math.ceil(outerRadius * 2 / spacing);
+                for (let i = -gridSize; i <= gridSize && this.numParticles < numParticles; i++) {
+                    for (let j = 3; j < torusHeight && this.numParticles < numParticles; j += spacing) {
+                        for (let k = -gridSize; k <= gridSize && this.numParticles < numParticles; k++) {
+                            const x = torusCenter[0] + i * spacing;
+                            const z = torusCenter[2] + k * spacing;
+                            
+                            // Check if this position is inside the torus
+                            const distFromCenter = Math.sqrt((x - torusCenter[0])**2 + (z - torusCenter[2])**2);
+                            const distFromTorusCenter = Math.abs(distFromCenter - torusMajorRadius);
+                            
+                            // Add particle if it's inside the torus and within bounds
+                            if (distFromTorusCenter <= torusMinorRadius && 
+                                x >= 3 && x < initBoxSize[0] - 3 && 
+                                z >= 3 && z < initBoxSize[2] - 3) {
+                                this.addParticle(particlesBuf, [x, j, z], spacing);
+                            }
+                        }
+                    }
+                }
+                break;
+                
             default: // Default to box
                 for (let j = 3; j < initBoxSize[1] * 0.80 && this.numParticles < numParticles; j += spacing) {
                     for (let i = initBoxSize[0] * 0.25; i < initBoxSize[0] - 4 && this.numParticles < numParticles; i += spacing) {
@@ -832,6 +870,18 @@ export class MLSMPMSimulator {
             shapeParams.venturiThroatPosition,
             shapeParams.venturiHelixCount,
             shapeParams.venturiHelixPitch,
+            shapeParams.torusMajorRadius,
+            shapeParams.torusMinorRadius,
+            shapeParams.torusHeight,
+            shapeParams.torusKnotCount,
+            shapeParams.torusKnotIntensity,
+            shapeParams.torusTwistAmount,
+            shapeParams.chemotaxisEnabled ? 1.0 : 0.0,
+            shapeParams.chemotaxisStrength,
+            shapeParams.chemotaxisDiffusionRate,
+            shapeParams.chemotaxisDecayRate,
+            shapeParams.chemotaxisSourceRadius,
+            shapeParams.chemotaxisAttraction,
             0.0 // padding
         ]);
         this.device.queue.writeBuffer(this.shapeParamsBuffer, 0, shapeParamsValues);
@@ -879,6 +929,22 @@ export class MLSMPMSimulator {
                     venturiDiameter + 6,  // Width = max diameter + padding
                     shapeParams.venturiHeight + 6,  // Height = tube height + padding
                     venturiDiameter + 6   // Depth = max diameter + padding
+                ];
+            case 5: // Torus
+                // The simulation box should be sized to fit the torus
+                const torusOuterRadius = shapeParams.torusMajorRadius + shapeParams.torusMinorRadius;
+                const torusDiameter = torusOuterRadius * 2;
+                
+                // Clamp to maximum allowed dimensions to prevent WebGPU limits
+                const maxDimension = 130; // Leave some margin below 140³ limit
+                const clampedWidth = Math.min(torusDiameter + 6, maxDimension);
+                const clampedHeight = Math.min(shapeParams.torusHeight + 6, maxDimension);
+                const clampedDepth = Math.min(torusDiameter + 6, maxDimension);
+                
+                return [
+                    clampedWidth,   // Width = outer diameter + padding (clamped)
+                    clampedHeight,  // Height = torus height + padding (clamped)
+                    clampedDepth    // Depth = outer diameter + padding (clamped)
                 ];
             default:
                 return currentBoxSize;

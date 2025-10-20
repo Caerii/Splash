@@ -48,6 +48,18 @@ export interface SimulationParameters {
     venturiThroatPosition: number;
     venturiHelixCount: number;
     venturiHelixPitch: number;
+    torusMajorRadius: number;
+    torusMinorRadius: number;
+    torusHeight: number;
+    torusKnotCount: number;
+    torusKnotIntensity: number;
+    torusTwistAmount: number;
+    chemotaxisEnabled: boolean;
+    chemotaxisStrength: number;
+    chemotaxisDiffusionRate: number;
+    chemotaxisDecayRate: number;
+    chemotaxisSourceRadius: number;
+    chemotaxisAttraction: number;
 
     // Simulation state
     running: boolean;
@@ -105,6 +117,18 @@ export class ParameterManager {
             venturiThroatPosition: CONTAINERS.VENTURI.DEFAULT_THROAT_POSITION,
             venturiHelixCount: CONTAINERS.VENTURI.DEFAULT_HELIX_COUNT,
             venturiHelixPitch: CONTAINERS.VENTURI.DEFAULT_HELIX_PITCH,
+            torusMajorRadius: CONTAINERS.TORUS.DEFAULT_MAJOR_RADIUS,
+            torusMinorRadius: CONTAINERS.TORUS.DEFAULT_MINOR_RADIUS,
+            torusHeight: CONTAINERS.TORUS.DEFAULT_HEIGHT,
+            torusKnotCount: CONTAINERS.TORUS.DEFAULT_KNOT_COUNT,
+            torusKnotIntensity: CONTAINERS.TORUS.DEFAULT_KNOT_INTENSITY,
+            torusTwistAmount: CONTAINERS.TORUS.DEFAULT_TWIST_AMOUNT,
+            chemotaxisEnabled: CONTAINERS.CHEMOTAXIS.DEFAULT_ENABLED,
+            chemotaxisStrength: CONTAINERS.CHEMOTAXIS.DEFAULT_STRENGTH,
+            chemotaxisDiffusionRate: CONTAINERS.CHEMOTAXIS.DEFAULT_DIFFUSION_RATE,
+            chemotaxisDecayRate: CONTAINERS.CHEMOTAXIS.DEFAULT_DECAY_RATE,
+            chemotaxisSourceRadius: CONTAINERS.CHEMOTAXIS.DEFAULT_SOURCE_RADIUS,
+            chemotaxisAttraction: CONTAINERS.CHEMOTAXIS.DEFAULT_ATTRACTION,
 
             // Simulation state
             running: true,
@@ -196,6 +220,18 @@ export class ParameterManager {
         this.parameters.venturiThroatPosition = CONTAINERS.VENTURI.DEFAULT_THROAT_POSITION;
         this.parameters.venturiHelixCount = CONTAINERS.VENTURI.DEFAULT_HELIX_COUNT;
         this.parameters.venturiHelixPitch = CONTAINERS.VENTURI.DEFAULT_HELIX_PITCH;
+        this.parameters.torusMajorRadius = CONTAINERS.TORUS.DEFAULT_MAJOR_RADIUS;
+        this.parameters.torusMinorRadius = CONTAINERS.TORUS.DEFAULT_MINOR_RADIUS;
+        this.parameters.torusHeight = CONTAINERS.TORUS.DEFAULT_HEIGHT;
+        this.parameters.torusKnotCount = CONTAINERS.TORUS.DEFAULT_KNOT_COUNT;
+        this.parameters.torusKnotIntensity = CONTAINERS.TORUS.DEFAULT_KNOT_INTENSITY;
+        this.parameters.torusTwistAmount = CONTAINERS.TORUS.DEFAULT_TWIST_AMOUNT;
+        this.parameters.chemotaxisEnabled = CONTAINERS.CHEMOTAXIS.DEFAULT_ENABLED;
+        this.parameters.chemotaxisStrength = CONTAINERS.CHEMOTAXIS.DEFAULT_STRENGTH;
+        this.parameters.chemotaxisDiffusionRate = CONTAINERS.CHEMOTAXIS.DEFAULT_DIFFUSION_RATE;
+        this.parameters.chemotaxisDecayRate = CONTAINERS.CHEMOTAXIS.DEFAULT_DECAY_RATE;
+        this.parameters.chemotaxisSourceRadius = CONTAINERS.CHEMOTAXIS.DEFAULT_SOURCE_RADIUS;
+        this.parameters.chemotaxisAttraction = CONTAINERS.CHEMOTAXIS.DEFAULT_ATTRACTION;
     }
 
     // Utility methods

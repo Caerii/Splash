@@ -37,6 +37,18 @@ struct ShapeParams {
     venturiThroatPosition: f32,
     venturiHelixCount: f32,
     venturiHelixPitch: f32,
+    torusMajorRadius: f32,
+    torusMinorRadius: f32,
+    torusHeight: f32,
+    torusKnotCount: f32,
+    torusKnotIntensity: f32,
+    torusTwistAmount: f32,
+    chemotaxisEnabled: f32,
+    chemotaxisStrength: f32,
+    chemotaxisDiffusionRate: f32,
+    chemotaxisDecayRate: f32,
+    chemotaxisSourceRadius: f32,
+    chemotaxisAttraction: f32,
     padding: f32,
 }
 
@@ -233,6 +245,39 @@ fn updateGrid(@builtin(global_invocation_id) id: vec3<u32>) {
                 
                 // If cell is outside all helix strands, zero out velocities
                 if (!is_inside_helix) { 
+                    cells[id.x].vx = 0; 
+                    cells[id.x].vz = 0; 
+                }
+                if (y < 2 || f32(y) > height) { cells[id.x].vy = 0; }
+            }
+            case 5u: { // Knotted Torus
+                let center = realBoxSize * 0.5;
+                let majorRadius = shapeParams.torusMajorRadius;
+                let minorRadius = shapeParams.torusMinorRadius;
+                let height = shapeParams.torusHeight;
+                let knotCount = shapeParams.torusKnotCount;
+                let knotIntensity = shapeParams.torusKnotIntensity;
+                let twistAmount = shapeParams.torusTwistAmount;
+                let cell_pos = vec3f(f32(x), f32(y), f32(z));
+                
+                // Calculate knotted torus position
+                let dist_from_center = length(cell_pos.xz - center.xz);
+                let angle = atan2(cell_pos.z - center.z, cell_pos.x - center.x);
+                let height_factor = cell_pos.y / height;
+                
+                // Apply knotting based on knot count
+                var knot_offset = 0.0;
+                if (knotCount > 0.0) {
+                    let knot_angle = angle * knotCount + height_factor * twistAmount * 6.28318;
+                    knot_offset = sin(knot_angle) * knotIntensity * minorRadius * 0.5;
+                }
+                
+                // Calculate the effective major radius with knotting
+                let effective_major_radius = majorRadius + knot_offset;
+                let dist_from_torus_center = abs(dist_from_center - effective_major_radius);
+                
+                // If cell is outside the knotted torus, zero out velocities
+                if (dist_from_torus_center > minorRadius) { 
                     cells[id.x].vx = 0; 
                     cells[id.x].vz = 0; 
                 }
