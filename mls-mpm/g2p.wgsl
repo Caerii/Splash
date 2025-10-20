@@ -38,6 +38,13 @@ struct ShapeParams {
     coneRadius: f32,
     coneHeight: f32,
     coneTaper: f32,
+    venturiTopRadius: f32,
+    venturiThroatRadius: f32,
+    venturiBottomRadius: f32,
+    venturiHeight: f32,
+    venturiThroatPosition: f32,
+    venturiHelixCount: f32,
+    venturiHelixPitch: f32,
     padding: f32,
 }
 
@@ -241,6 +248,113 @@ fn g2p(@builtin(global_invocation_id) id: vec3<u32>) {
                 }
                 if (x_n.y > realBoxSize.y - 4.0) { 
                     particles[id.x].v.y += wallStiffness * (realBoxSize.y - 4.0 - x_n.y); 
+                    particles[id.x].v.y *= physicsProps.collisionDamping;  // Configurable damping
+                }
+            }
+            case 4u: { // Triple Helix Venturi
+                let center = realBoxSize * 0.5;
+                let topRadius = shapeParams.venturiTopRadius;
+                let throatRadius = shapeParams.venturiThroatRadius;
+                let bottomRadius = shapeParams.venturiBottomRadius;
+                let height = shapeParams.venturiHeight;
+                let throatPosition = shapeParams.venturiThroatPosition;
+                let helixCount = shapeParams.venturiHelixCount;
+                let helixPitch = shapeParams.venturiHelixPitch;
+                
+                // Calculate radius at current particle height using smooth interpolation
+                let t = x_n.y / height;
+                var currentRadius: f32;
+                if (t < throatPosition) {
+                    let localT = t / throatPosition;
+                    let eased = 1.0 - pow(1.0 - localT, 3.0); // ease-out cubic
+                    currentRadius = topRadius + (throatRadius - topRadius) * eased;
+                } else {
+                    let localT = (t - throatPosition) / (1.0 - throatPosition);
+                    let eased = pow(localT, 3.0); // ease-in cubic
+                    currentRadius = throatRadius + (bottomRadius - throatRadius) * eased;
+                }
+                
+                // Check if particle is within the helix-shaped tube
+                let dist_from_center = length(x_n.xz - center.xz);
+                var is_inside_helix = false;
+                var min_distance_to_wall = currentRadius;
+                
+                // Check each helix strand
+                for (var helix = 0; helix < i32(helixCount); helix++) {
+                    let helixAngle = f32(helix) / helixCount * 2.0 * 3.14159;
+                    let helixOffset = t * helixPitch * 2.0 * 3.14159;
+                    let currentHelixAngle = helixAngle + helixOffset;
+                    
+                    // Calculate distance to this helix strand
+                    let helixCenterX = center.x + currentRadius * 0.6 * cos(currentHelixAngle);
+                    let helixCenterZ = center.z + currentRadius * 0.6 * sin(currentHelixAngle);
+                    let helixRadius = currentRadius * 0.4;
+                    
+                    let dist_to_helix = length(x_n.xz - vec2f(helixCenterX, helixCenterZ));
+                    if (dist_to_helix <= helixRadius) {
+                        is_inside_helix = true;
+                        min_distance_to_wall = min(min_distance_to_wall, helixRadius - dist_to_helix);
+                    }
+                }
+                
+                // If particle is outside all helix strands, apply boundary force
+                if (!is_inside_helix) {
+                    // Find closest helix strand for collision response
+                    var closest_helix = 0;
+                    var closest_distance = 999999.0;
+                    
+                    for (var helix = 0; helix < i32(helixCount); helix++) {
+                        let helixAngle = f32(helix) / helixCount * 2.0 * 3.14159;
+                        let helixOffset = t * helixPitch * 2.0 * 3.14159;
+                        let currentHelixAngle = helixAngle + helixOffset;
+                        
+                        let helixCenterX = center.x + currentRadius * 0.6 * cos(currentHelixAngle);
+                        let helixCenterZ = center.z + currentRadius * 0.6 * sin(currentHelixAngle);
+                        let helixRadius = currentRadius * 0.4;
+                        
+                        let dist_to_helix = length(x_n.xz - vec2f(helixCenterX, helixCenterZ));
+                        if (dist_to_helix < closest_distance) {
+                            closest_distance = dist_to_helix;
+                            closest_helix = helix;
+                        }
+                    }
+                    
+                    // Apply collision response to closest helix
+                    let helixAngle = f32(closest_helix) / helixCount * 2.0 * 3.14159;
+                    let helixOffset = t * helixPitch * 2.0 * 3.14159;
+                    let currentHelixAngle = helixAngle + helixOffset;
+                    
+                    let helixCenterX = center.x + currentRadius * 0.6 * cos(currentHelixAngle);
+                    let helixCenterZ = center.z + currentRadius * 0.6 * sin(currentHelixAngle);
+                    let helixRadius = currentRadius * 0.4;
+                    
+                    let normal = normalize(x_n.xz - vec2f(helixCenterX, helixCenterZ));
+                    let penetration = helixRadius - closest_distance;
+                    
+                    // Move particle back to helix surface
+                    particles[id.x].position.x = helixCenterX + normal.x * helixRadius;
+                    particles[id.x].position.z = helixCenterZ + normal.y * helixRadius;
+                    
+                    // Apply collision response
+                    let velocity_magnitude = length(particles[id.x].v);
+                    if (velocity_magnitude > 0.1) {
+                        let normal_velocity = dot(particles[id.x].v.xz, normal);
+                        let tangential_velocity = particles[id.x].v.xz - normal * normal_velocity;
+                        
+                        // Preserve tangential velocity, reduce normal velocity
+                        particles[id.x].v.x = tangential_velocity.x * 0.95 + normal.x * normal_velocity * 0.1;
+                        particles[id.x].v.z = tangential_velocity.y * 0.95 + normal.y * normal_velocity * 0.1;
+                        particles[id.x].v.x += wallStiffness * normal.x * penetration * 0.5;
+                        particles[id.x].v.z += wallStiffness * normal.y * penetration * 0.5;
+                    }
+                }
+                
+                if (x_n.y < 3.0) { 
+                    particles[id.x].v.y += wallStiffness * (3.0 - x_n.y); 
+                    particles[id.x].v.y *= physicsProps.collisionDamping * 0.5;  // Bottom damping (50% of normal)
+                }
+                if (x_n.y > height) { 
+                    particles[id.x].v.y += wallStiffness * (height - x_n.y); 
                     particles[id.x].v.y *= physicsProps.collisionDamping;  // Configurable damping
                 }
             }

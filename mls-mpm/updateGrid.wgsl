@@ -30,6 +30,13 @@ struct ShapeParams {
     coneRadius: f32,
     coneHeight: f32,
     coneTaper: f32,
+    venturiTopRadius: f32,
+    venturiThroatRadius: f32,
+    venturiBottomRadius: f32,
+    venturiHeight: f32,
+    venturiThroatPosition: f32,
+    venturiHelixCount: f32,
+    venturiHelixPitch: f32,
     padding: f32,
 }
 
@@ -179,6 +186,57 @@ fn updateGrid(@builtin(global_invocation_id) id: vec3<u32>) {
                     cells[id.x].vz = 0; 
                 }
                 if (y < 2 || y > i32(ceil(realBoxSize.y) - 3)) { cells[id.x].vy = 0; }
+            }
+            case 4u: { // Triple Helix Venturi
+                let center = realBoxSize * 0.5;
+                let topRadius = shapeParams.venturiTopRadius;
+                let throatRadius = shapeParams.venturiThroatRadius;
+                let bottomRadius = shapeParams.venturiBottomRadius;
+                let height = shapeParams.venturiHeight;
+                let throatPosition = shapeParams.venturiThroatPosition;
+                let helixCount = shapeParams.venturiHelixCount;
+                let helixPitch = shapeParams.venturiHelixPitch;
+                let cell_pos = vec3f(f32(x), f32(y), f32(z));
+                
+                // Calculate radius at current cell height using smooth interpolation
+                let t = cell_pos.y / height;
+                var currentRadius: f32;
+                if (t < throatPosition) {
+                    let localT = t / throatPosition;
+                    let eased = 1.0 - pow(1.0 - localT, 3.0); // ease-out cubic
+                    currentRadius = topRadius + (throatRadius - topRadius) * eased;
+                } else {
+                    let localT = (t - throatPosition) / (1.0 - throatPosition);
+                    let eased = pow(localT, 3.0); // ease-in cubic
+                    currentRadius = throatRadius + (bottomRadius - throatRadius) * eased;
+                }
+                
+                // Check if cell is within any helix strand
+                var is_inside_helix = false;
+                
+                for (var helix = 0; helix < i32(helixCount); helix++) {
+                    let helixAngle = f32(helix) / helixCount * 2.0 * 3.14159;
+                    let helixOffset = t * helixPitch * 2.0 * 3.14159;
+                    let currentHelixAngle = helixAngle + helixOffset;
+                    
+                    // Calculate distance to this helix strand
+                    let helixCenterX = center.x + currentRadius * 0.6 * cos(currentHelixAngle);
+                    let helixCenterZ = center.z + currentRadius * 0.6 * sin(currentHelixAngle);
+                    let helixRadius = currentRadius * 0.4;
+                    
+                    let dist_to_helix = length(cell_pos.xz - vec2f(helixCenterX, helixCenterZ));
+                    if (dist_to_helix <= helixRadius) {
+                        is_inside_helix = true;
+                        break;
+                    }
+                }
+                
+                // If cell is outside all helix strands, zero out velocities
+                if (!is_inside_helix) { 
+                    cells[id.x].vx = 0; 
+                    cells[id.x].vz = 0; 
+                }
+                if (y < 2 || f32(y) > height) { cells[id.x].vy = 0; }
             }
             default: { // Default to box
                 if (x < 2 || x > i32(ceil(realBoxSize.x) - 3)) { cells[id.x].vx = 0; }

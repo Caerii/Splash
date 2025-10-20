@@ -521,6 +521,118 @@ export class MLSMPMSimulator {
                 }
                 break;
                 
+            case 4: // Triple Helix Venturi
+                const venturiTopRadius = shapeParams?.venturiTopRadius ? 
+                    shapeParams.venturiTopRadius : 
+                    Math.min(initBoxSize[0], initBoxSize[2]) * 0.4;
+                const venturiThroatRadius = shapeParams?.venturiThroatRadius ? 
+                    shapeParams.venturiThroatRadius : 
+                    Math.min(initBoxSize[0], initBoxSize[2]) * 0.12;
+                const venturiBottomRadius = shapeParams?.venturiBottomRadius ? 
+                    shapeParams.venturiBottomRadius : 
+                    Math.min(initBoxSize[0], initBoxSize[2]) * 0.5;
+                const venturiHeight = shapeParams?.venturiHeight ? 
+                    shapeParams.venturiHeight : 
+                    initBoxSize[1] * 0.9;
+                const venturiThroatPosition = shapeParams?.venturiThroatPosition || 0.5;
+                const helixCount = shapeParams?.venturiHelixCount || 3;
+                const helixPitch = shapeParams?.venturiHelixPitch || 0.3;
+                
+                // Generate particles efficiently for helix Venturi - use direct helix generation
+                const inletHeight = venturiHeight * 0.8; // Fill most of the container
+                const particlesPerHelix = Math.floor(numParticles / helixCount); // Distribute particles across helices
+                
+                for (let helix = 0; helix < helixCount && this.numParticles < numParticles; helix++) {
+                    const helixAngle = (helix / helixCount) * 2 * Math.PI;
+                    let helixParticleCount = 0;
+                    
+                    for (let j = 3; j < inletHeight && helixParticleCount < particlesPerHelix && this.numParticles < numParticles; j += spacing) {
+                        // Calculate radius at current height using smooth interpolation
+                        const t = j / venturiHeight;
+                        let currentRadius;
+                        if (t < venturiThroatPosition) {
+                            const localT = t / venturiThroatPosition;
+                            const eased = 1 - Math.pow(1 - localT, 3); // ease-out cubic
+                            currentRadius = venturiTopRadius + (venturiThroatRadius - venturiTopRadius) * eased;
+                        } else {
+                            const localT = (t - venturiThroatPosition) / (1 - venturiThroatPosition);
+                            const eased = Math.pow(localT, 3); // ease-in cubic
+                            currentRadius = venturiThroatRadius + (venturiBottomRadius - venturiThroatRadius) * eased;
+                        }
+                        
+                        // Calculate helix position at this height
+                        const helixOffset = t * helixPitch * 2 * Math.PI;
+                        const currentHelixAngle = helixAngle + helixOffset;
+                        
+                        const helixCenterX = center[0] + currentRadius * 0.6 * Math.cos(currentHelixAngle);
+                        const helixCenterZ = center[2] + currentRadius * 0.6 * Math.sin(currentHelixAngle);
+                        const helixRadius = currentRadius * 0.4;
+                        
+                        // Generate particles in a circular pattern around the helix center
+                        const maxRadius = Math.floor(helixRadius / spacing);
+                        for (let r = 0; r < maxRadius && helixParticleCount < particlesPerHelix && this.numParticles < numParticles; r += 1) {
+                            const circumference = 2 * Math.PI * r;
+                            const numAngles = Math.max(1, Math.floor(circumference / spacing));
+                            for (let a = 0; a < numAngles && helixParticleCount < particlesPerHelix && this.numParticles < numParticles; a++) {
+                                const angle = (a / numAngles) * 2 * Math.PI;
+                                const x = helixCenterX + r * spacing * Math.cos(angle);
+                                const z = helixCenterZ + r * spacing * Math.sin(angle);
+                                
+                                // Add particle if within bounds
+                                if (x >= 3 && x < initBoxSize[0] - 3 && 
+                                    z >= 3 && z < initBoxSize[2] - 3) {
+                                    this.addParticle(particlesBuf, [x, j, z], spacing);
+                                    helixParticleCount++;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // If we still have room for more particles, fill any remaining space
+                if (this.numParticles < numParticles) {
+                    const remainingParticles = numParticles - this.numParticles;
+                    const particlesPerHeight = Math.floor(remainingParticles / inletHeight);
+                    
+                    for (let j = 3; j < inletHeight && this.numParticles < numParticles; j += spacing) {
+                        const t = j / venturiHeight;
+                        let currentRadius;
+                        if (t < venturiThroatPosition) {
+                            const localT = t / venturiThroatPosition;
+                            const eased = 1 - Math.pow(1 - localT, 3);
+                            currentRadius = venturiTopRadius + (venturiThroatRadius - venturiTopRadius) * eased;
+                        } else {
+                            const localT = (t - venturiThroatPosition) / (1 - venturiThroatPosition);
+                            const eased = Math.pow(localT, 3);
+                            currentRadius = venturiThroatRadius + (venturiBottomRadius - venturiThroatRadius) * eased;
+                        }
+                        
+                        // Fill remaining space with random particles in helix strands
+                        for (let i = 0; i < particlesPerHeight && this.numParticles < numParticles; i++) {
+                            const helix = Math.floor(Math.random() * helixCount);
+                            const helixAngle = (helix / helixCount) * 2 * Math.PI;
+                            const helixOffset = t * helixPitch * 2 * Math.PI;
+                            const currentHelixAngle = helixAngle + helixOffset;
+                            
+                            const helixCenterX = center[0] + currentRadius * 0.6 * Math.cos(currentHelixAngle);
+                            const helixCenterZ = center[2] + currentRadius * 0.6 * Math.sin(currentHelixAngle);
+                            const helixRadius = currentRadius * 0.4;
+                            
+                            // Random position within helix
+                            const r = Math.random() * helixRadius;
+                            const angle = Math.random() * 2 * Math.PI;
+                            const x = helixCenterX + r * Math.cos(angle);
+                            const z = helixCenterZ + r * Math.sin(angle);
+                            
+                            if (x >= 3 && x < initBoxSize[0] - 3 && 
+                                z >= 3 && z < initBoxSize[2] - 3) {
+                                this.addParticle(particlesBuf, [x, j, z], spacing);
+                            }
+                        }
+                    }
+                }
+                break;
+                
             default: // Default to box
                 for (let j = 3; j < initBoxSize[1] * 0.80 && this.numParticles < numParticles; j += spacing) {
                     for (let i = initBoxSize[0] * 0.25; i < initBoxSize[0] - 4 && this.numParticles < numParticles; i += spacing) {
@@ -713,6 +825,13 @@ export class MLSMPMSimulator {
             shapeParams.coneRadius,
             shapeParams.coneHeight,
             shapeParams.coneTaper,
+            shapeParams.venturiTopRadius,
+            shapeParams.venturiThroatRadius,
+            shapeParams.venturiBottomRadius,
+            shapeParams.venturiHeight,
+            shapeParams.venturiThroatPosition,
+            shapeParams.venturiHelixCount,
+            shapeParams.venturiHelixPitch,
             0.0 // padding
         ]);
         this.device.queue.writeBuffer(this.shapeParamsBuffer, 0, shapeParamsValues);
@@ -751,6 +870,15 @@ export class MLSMPMSimulator {
                     coneDiameter + 6,  // Width = base diameter + padding
                     shapeParams.coneHeight + 6,  // Height = cone height + padding
                     coneDiameter + 6   // Depth = base diameter + padding
+                ];
+            case 4: // Triple Helix Venturi
+                // The simulation box should be sized to fit the widest part of the Venturi tube
+                const maxVenturiRadius = Math.max(shapeParams.venturiTopRadius, shapeParams.venturiBottomRadius);
+                const venturiDiameter = maxVenturiRadius * 2;
+                return [
+                    venturiDiameter + 6,  // Width = max diameter + padding
+                    shapeParams.venturiHeight + 6,  // Height = tube height + padding
+                    venturiDiameter + 6   // Depth = max diameter + padding
                 ];
             default:
                 return currentBoxSize;

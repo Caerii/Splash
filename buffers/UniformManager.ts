@@ -66,8 +66,15 @@ export class UniformManager {
             coneRadius: new Float32Array(this.shapeParamsValues, 24, 1),
             coneHeight: new Float32Array(this.shapeParamsValues, 28, 1),
             coneTaper: new Float32Array(this.shapeParamsValues, 32, 1),
+            venturiTopRadius: new Float32Array(this.shapeParamsValues, 36, 1),
+            venturiThroatRadius: new Float32Array(this.shapeParamsValues, 40, 1),
+            venturiBottomRadius: new Float32Array(this.shapeParamsValues, 44, 1),
+            venturiHeight: new Float32Array(this.shapeParamsValues, 48, 1),
+            venturiThroatPosition: new Float32Array(this.shapeParamsValues, 52, 1),
+            venturiHelixCount: new Float32Array(this.shapeParamsValues, 56, 1),
+            venturiHelixPitch: new Float32Array(this.shapeParamsValues, 60, 1),
             // Padding for alignment
-            padding: new Float32Array(this.shapeParamsValues, 36, 1),
+            padding: new Float32Array(this.shapeParamsValues, 64, 1),
         };
 
         this.setDefaultValues();
@@ -95,6 +102,13 @@ export class UniformManager {
         this.shapeParamsViews.coneRadius.set([CONTAINERS.CONE.DEFAULT_RADIUS]);
         this.shapeParamsViews.coneHeight.set([CONTAINERS.CONE.DEFAULT_HEIGHT]);
         this.shapeParamsViews.coneTaper.set([CONTAINERS.CONE.DEFAULT_TAPER]);
+        this.shapeParamsViews.venturiTopRadius.set([CONTAINERS.VENTURI.DEFAULT_TOP_RADIUS]);
+        this.shapeParamsViews.venturiThroatRadius.set([CONTAINERS.VENTURI.DEFAULT_THROAT_RADIUS]);
+        this.shapeParamsViews.venturiBottomRadius.set([CONTAINERS.VENTURI.DEFAULT_BOTTOM_RADIUS]);
+        this.shapeParamsViews.venturiHeight.set([CONTAINERS.VENTURI.DEFAULT_HEIGHT]);
+        this.shapeParamsViews.venturiThroatPosition.set([CONTAINERS.VENTURI.DEFAULT_THROAT_POSITION]);
+        this.shapeParamsViews.venturiHelixCount.set([CONTAINERS.VENTURI.DEFAULT_HELIX_COUNT]);
+        this.shapeParamsViews.venturiHelixPitch.set([CONTAINERS.VENTURI.DEFAULT_HELIX_PITCH]);
     }
 
     // Render uniform methods
@@ -160,6 +174,13 @@ export class UniformManager {
         this.shapeParamsViews.coneRadius.set([shapeParams.coneRadius]);
         this.shapeParamsViews.coneHeight.set([shapeParams.coneHeight]);
         this.shapeParamsViews.coneTaper.set([shapeParams.coneTaper]);
+        this.shapeParamsViews.venturiTopRadius.set([shapeParams.venturiTopRadius]);
+        this.shapeParamsViews.venturiThroatRadius.set([shapeParams.venturiThroatRadius]);
+        this.shapeParamsViews.venturiBottomRadius.set([shapeParams.venturiBottomRadius]);
+        this.shapeParamsViews.venturiHeight.set([shapeParams.venturiHeight]);
+        this.shapeParamsViews.venturiThroatPosition.set([shapeParams.venturiThroatPosition]);
+        this.shapeParamsViews.venturiHelixCount.set([shapeParams.venturiHelixCount]);
+        this.shapeParamsViews.venturiHelixPitch.set([shapeParams.venturiHelixPitch]);
         this.bufferManager.writeBuffer('shapeParams', this.shapeParamsValues);
     }
 

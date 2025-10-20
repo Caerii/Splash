@@ -60,6 +60,25 @@ export const CONTAINERS = {
         MIN_HEIGHT: 20,
         MAX_HEIGHT: 80,
     },
+    VENTURI: {
+        DEFAULT_TOP_RADIUS: 30,
+        DEFAULT_THROAT_RADIUS: 8,
+        DEFAULT_BOTTOM_RADIUS: 35,
+        DEFAULT_HEIGHT: 70,
+        DEFAULT_THROAT_POSITION: 0.5,
+        DEFAULT_HELIX_COUNT: 3,
+        DEFAULT_HELIX_PITCH: 0.8,
+        MIN_RADIUS: 3,
+        MAX_RADIUS: 60,
+        MIN_HEIGHT: 30,
+        MAX_HEIGHT: 100,
+        MIN_THROAT_POSITION: 0.2,
+        MAX_THROAT_POSITION: 0.8,
+        MIN_HELIX_COUNT: 2,
+        MAX_HELIX_COUNT: 5,
+        MIN_HELIX_PITCH: 0.1,
+        MAX_HELIX_PITCH: 0.8,
+    },
 } as const;
 
 // Particle Count Options
@@ -73,7 +92,7 @@ export const PARTICLE_OPTIONS = [
 ];
 
 // Shape Options
-export const SHAPE_OPTIONS = ['Box', 'Cylinder', 'Sphere', 'Cone'];
+export const SHAPE_OPTIONS = ['Box', 'Cylinder', 'Sphere', 'Cone', 'Venturi'];
 
 // Buffer Sizes
 export const BUFFER_SIZES = {
@@ -83,7 +102,7 @@ export const BUFFER_SIZES = {
     DT_BUFFER: 4,
     SHAPE_TYPE: 4,
     NUM_PARTICLES: 4,
-    SHAPE_PARAMS: 40, // 10 f32 values for all shape parameters
+    SHAPE_PARAMS: 68, // 17 f32 values for all shape parameters
 } as const;
 
 // WebGPU Limits

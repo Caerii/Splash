@@ -41,6 +41,13 @@ export interface SimulationParameters {
     coneRadius: number;
     coneHeight: number;
     coneTaper: number;
+    venturiTopRadius: number;
+    venturiThroatRadius: number;
+    venturiBottomRadius: number;
+    venturiHeight: number;
+    venturiThroatPosition: number;
+    venturiHelixCount: number;
+    venturiHelixPitch: number;
 
     // Simulation state
     running: boolean;
@@ -91,6 +98,13 @@ export class ParameterManager {
             coneRadius: CONTAINERS.CONE.DEFAULT_RADIUS,
             coneHeight: CONTAINERS.CONE.DEFAULT_HEIGHT,
             coneTaper: CONTAINERS.CONE.DEFAULT_TAPER,
+            venturiTopRadius: CONTAINERS.VENTURI.DEFAULT_TOP_RADIUS,
+            venturiThroatRadius: CONTAINERS.VENTURI.DEFAULT_THROAT_RADIUS,
+            venturiBottomRadius: CONTAINERS.VENTURI.DEFAULT_BOTTOM_RADIUS,
+            venturiHeight: CONTAINERS.VENTURI.DEFAULT_HEIGHT,
+            venturiThroatPosition: CONTAINERS.VENTURI.DEFAULT_THROAT_POSITION,
+            venturiHelixCount: CONTAINERS.VENTURI.DEFAULT_HELIX_COUNT,
+            venturiHelixPitch: CONTAINERS.VENTURI.DEFAULT_HELIX_PITCH,
 
             // Simulation state
             running: true,
@@ -175,6 +189,13 @@ export class ParameterManager {
         this.parameters.coneRadius = CONTAINERS.CONE.DEFAULT_RADIUS;
         this.parameters.coneHeight = CONTAINERS.CONE.DEFAULT_HEIGHT;
         this.parameters.coneTaper = CONTAINERS.CONE.DEFAULT_TAPER;
+        this.parameters.venturiTopRadius = CONTAINERS.VENTURI.DEFAULT_TOP_RADIUS;
+        this.parameters.venturiThroatRadius = CONTAINERS.VENTURI.DEFAULT_THROAT_RADIUS;
+        this.parameters.venturiBottomRadius = CONTAINERS.VENTURI.DEFAULT_BOTTOM_RADIUS;
+        this.parameters.venturiHeight = CONTAINERS.VENTURI.DEFAULT_HEIGHT;
+        this.parameters.venturiThroatPosition = CONTAINERS.VENTURI.DEFAULT_THROAT_POSITION;
+        this.parameters.venturiHelixCount = CONTAINERS.VENTURI.DEFAULT_HELIX_COUNT;
+        this.parameters.venturiHelixPitch = CONTAINERS.VENTURI.DEFAULT_HELIX_PITCH;
     }
 
     // Utility methods

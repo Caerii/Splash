@@ -284,6 +284,25 @@ async function main() {
     })
     coneFolder.close();
     
+    // Venturi controls
+    const venturiFolder = shapeFolder.addFolder('Venturi Parameters');
+    const venturiTopRadiusControl = venturiFolder.add(params, 'venturiTopRadius', 3, 60, 1).name('Top Radius')
+    const venturiThroatRadiusControl = venturiFolder.add(params, 'venturiThroatRadius', 3, 60, 1).name('Throat Radius')
+    const venturiBottomRadiusControl = venturiFolder.add(params, 'venturiBottomRadius', 3, 60, 1).name('Bottom Radius')
+    const venturiHeightControl = venturiFolder.add(params, 'venturiHeight', 30, 100, 1).name('Height')
+    const venturiThroatPositionControl = venturiFolder.add(params, 'venturiThroatPosition', 0.2, 0.8, 0.01).name('Throat Position')
+    const venturiHelixCountControl = venturiFolder.add(params, 'venturiHelixCount', 2, 5, 1).name('Helix Count')
+    const venturiHelixPitchControl = venturiFolder.add(params, 'venturiHelixPitch', 0.1, 0.8, 0.01).name('Helix Pitch')
+    
+    venturiTopRadiusControl.onChange(handleShapeParameterChange)
+    venturiThroatRadiusControl.onChange(handleShapeParameterChange)
+    venturiBottomRadiusControl.onChange(handleShapeParameterChange)
+    venturiHeightControl.onChange(handleShapeParameterChange)
+    venturiThroatPositionControl.onChange(handleShapeParameterChange)
+    venturiHelixCountControl.onChange(handleShapeParameterChange)
+    venturiHelixPitchControl.onChange(handleShapeParameterChange)
+    venturiFolder.close();
+    
     shapeFolder.close();
 
     document.addEventListener('keydown', (event) => {
