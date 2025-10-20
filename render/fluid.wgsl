@@ -14,6 +14,7 @@ struct RenderUniforms {
     projectionMatrix: mat4x4f, 
     viewMatrix: mat4x4f, 
     invViewMatrix: mat4x4f, 
+    gravity: f32, 
 }
 
 struct FragmentInput {
@@ -102,11 +103,12 @@ fn fs(input: FragmentInput) -> @location(0) vec4f {
     var refractionDirView: vec3f = normalize(refract(rayDirView, normal, 1.0 / 1.333));
     var refractionDirWorld: vec3f = normalize((uniforms.invViewMatrix * vec4f(refractionDirView, 0.)).xyz);
     var transmitted = textureSampleLevel(envmapTexture, textureSampler, refractionDirWorld, 0.0).rgb;
-    if (refractionDirWorld.y < 0.) {
-        let surfacePosWorld = (uniforms.invViewMatrix * vec4f(surfacePosView, 1.)).xyz;
-        let floor = floorColor(surfacePosWorld, refractionDirWorld);
-        transmitted = select(transmitted, floor.rgb, floor.w > 0.5);
-    }
+    // Floor is now transparent - only use environment map for refraction
+    // if (refractionDirWorld.y < 0.) {
+    //     let surfacePosWorld = (uniforms.invViewMatrix * vec4f(surfacePosView, 1.)).xyz;
+    //     let floor = floorColor(surfacePosWorld, refractionDirWorld);
+    //     transmitted = select(transmitted, floor.rgb, floor.w > 0.5);
+    // }
     var refractionColor: vec3f = transmitted * transmittance;
 
     let F0 = 0.02;
@@ -115,9 +117,11 @@ fn fs(input: FragmentInput) -> @location(0) vec4f {
 
     var reflectionDir: vec3f = reflect(rayDirView, normal);
     var reflectionDirWorld: vec3f = (uniforms.invViewMatrix * vec4f(reflectionDir, 0.0)).xyz;
-    var reflectionColor: vec3f = select(textureSampleLevel(envmapTexture, textureSampler, reflectionDirWorld, 0.).rgb, vec3f(0.85), reflectionDirWorld.y < 0.); 
-    fresnel = select(fresnel, 0.3 * fresnel, reflectionDirWorld.y < 0.);
-    fresnelBiased = select(fresnelBiased, 0.3 * fresnelBiased, reflectionDirWorld.y < 0.);
+    // Use environment map for all reflections, no special floor handling
+    var reflectionColor: vec3f = textureSampleLevel(envmapTexture, textureSampler, reflectionDirWorld, 0.).rgb;
+    // Remove floor-specific fresnel adjustments
+    // fresnel = select(fresnel, 0.3 * fresnel, reflectionDirWorld.y < 0.);
+    // fresnelBiased = select(fresnelBiased, 0.3 * fresnelBiased, reflectionDirWorld.y < 0.);
 
     var finalColor = 0.0 * specular + mix(refractionColor, reflectionColor, fresnelBiased) + 0.1 * fresnel;
 

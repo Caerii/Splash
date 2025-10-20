@@ -5,6 +5,7 @@ struct RenderUniforms {
     projectionMatrix: mat4x4f, 
     viewMatrix: mat4x4f, 
     invViewMatrix: mat4x4f, 
+    gravity: f32, 
 }
 
 struct VertexOutput {

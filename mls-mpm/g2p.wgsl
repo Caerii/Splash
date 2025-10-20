@@ -9,7 +9,6 @@ struct Cell {
     vz: i32, 
     mass: i32, 
 }
-
 override fixedPointMultiplier: f32; 
 
 @group(0) @binding(0) var<storage, read_write> particles: array<Particle>;
@@ -18,9 +17,32 @@ override fixedPointMultiplier: f32;
 @group(0) @binding(3) var<uniform> initBoxSize: vec3f;
 @group(0) @binding(4) var<uniform> numParticles: u32;
 @group(0) @binding(5) var<uniform> dt: f32;
+@group(0) @binding(6) var<uniform> shapeType: u32;
+@group(0) @binding(7) var<uniform> physicsProps: PhysicsProperties;
+@group(0) @binding(8) var<uniform> shapeParams: ShapeParams;
+
+struct PhysicsProperties {
+    viscosity: f32,
+    wallStiffness: f32,
+    collisionDamping: f32,
+    velocityCap: f32,
+}
+
+struct ShapeParams {
+    boxWidth: f32,
+    boxHeight: f32,
+    boxDepth: f32,
+    cylinderRadius: f32,
+    cylinderHeight: f32,
+    sphereRadius: f32,
+    coneRadius: f32,
+    coneHeight: f32,
+    coneTaper: f32,
+    padding: f32,
+}
 
 fn decodeFixedPoint(fixedPoint: i32) -> f32 {
-	return f32(fixedPoint) / fixedPointMultiplier;
+    return f32(fixedPoint) / fixedPointMultiplier;
 }
 
 
@@ -71,29 +93,143 @@ fn g2p(@builtin(global_invocation_id) id: vec3<u32>) {
         }
 
         particles[id.x].C = B * 4.0f;
-        particles[id.x].position += particles[id.x].v * dt;
-        particles[id.x].position = vec3f(
-            clamp(particles[id.x].position.x, 1., realBoxSize.x - 2.), 
-            clamp(particles[id.x].position.y, 1., realBoxSize.y - 2.), 
-            clamp(particles[id.x].position.z, 1., realBoxSize.z - 2.)
-        );
-
-        let center = vec3f(realBoxSize.x / 2, realBoxSize.y / 2, realBoxSize.z / 2);
-        let dist = center - particles[id.x].position;
-        let dirToOrigin = normalize(dist);
-        var rForce = vec3f(0);
-
         
+        // Apply single viscosity damping (removed redundant damping operations)
+        particles[id.x].v *= physicsProps.viscosity;
+        
+        // Add velocity cap to prevent unrealistic speeds (configurable)
+        let velocity_magnitude = length(particles[id.x].v);
+        if (velocity_magnitude > physicsProps.velocityCap) {
+            particles[id.x].v = normalize(particles[id.x].v) * physicsProps.velocityCap;
+        }
+        
+        particles[id.x].position += particles[id.x].v * dt;
+        
+        // Apply boundary conditions (configurable)
+        let wallStiffness = physicsProps.wallStiffness;
         let k = 2.0;
-        let wallStiffness = 1.0;
-        let x_n: vec3f = particles[id.x].position + particles[id.x].v * dt * k;
-        let wallMin: vec3f = vec3f(3.);
-        let wallMax: vec3f = realBoxSize - 4.;
-        if (x_n.x < wallMin.x) { particles[id.x].v.x += wallStiffness * (wallMin.x - x_n.x); }
-        if (x_n.x > wallMax.x) { particles[id.x].v.x += wallStiffness * (wallMax.x - x_n.x); }
-        if (x_n.y < wallMin.y) { particles[id.x].v.y += wallStiffness * (wallMin.y - x_n.y); }
-        if (x_n.y > wallMax.y) { particles[id.x].v.y += wallStiffness * (wallMax.y - x_n.y); }
-        if (x_n.z < wallMin.z) { particles[id.x].v.z += wallStiffness * (wallMin.z - x_n.z); }
-        if (x_n.z > wallMax.z) { particles[id.x].v.z += wallStiffness * (wallMax.z - x_n.z); }
+        let x_n = particles[id.x].position + particles[id.x].v * dt * k;
+        
+        // Apply boundary conditions based on shape type
+        switch (shapeType) {
+            case 0u: { // Box
+                let center = realBoxSize * 0.5;
+                let boxWidth = shapeParams.boxWidth;  // Use full width without clipping
+                let boxHeight = shapeParams.boxHeight;  // Use full height without clipping
+                let boxDepth = shapeParams.boxDepth;  // Use full depth without clipping
+                let boxStartX = center.x - boxWidth * 0.5;
+                let boxEndX = center.x + boxWidth * 0.5;
+                let boxStartZ = center.z - boxDepth * 0.5;
+                let boxEndZ = center.z + boxDepth * 0.5;
+                
+                if (x_n.x < boxStartX) { 
+                    particles[id.x].v.x += wallStiffness * (boxStartX - x_n.x); 
+                    particles[id.x].v.x *= physicsProps.collisionDamping;  // Configurable damping
+                }
+                if (x_n.x > boxEndX) { 
+                    particles[id.x].v.x += wallStiffness * (boxEndX - x_n.x); 
+                    particles[id.x].v.x *= physicsProps.collisionDamping;  // Configurable damping
+                }
+                if (x_n.y < 3.0) { 
+                    particles[id.x].v.y += wallStiffness * (3.0 - x_n.y); 
+                    particles[id.x].v.y *= physicsProps.collisionDamping * 0.7;  // Bottom damping (70% of normal)
+                }
+                if (x_n.y > boxHeight) { 
+                    particles[id.x].v.y += wallStiffness * (boxHeight - x_n.y); 
+                    particles[id.x].v.y *= physicsProps.collisionDamping;  // Configurable damping
+                }
+                if (x_n.z < boxStartZ) { 
+                    particles[id.x].v.z += wallStiffness * (boxStartZ - x_n.z); 
+                    particles[id.x].v.z *= physicsProps.collisionDamping;  // Configurable damping
+                }
+                if (x_n.z > boxEndZ) { 
+                    particles[id.x].v.z += wallStiffness * (boxEndZ - x_n.z); 
+                    particles[id.x].v.z *= physicsProps.collisionDamping;  // Configurable damping
+                }
+            }
+            case 1u: { // Cylinder
+                let center = realBoxSize * 0.5;
+                let radius = shapeParams.cylinderRadius;  // Use full radius without clipping
+                let height = shapeParams.cylinderHeight;  // Use full height without clipping
+                let dist_from_center = length(x_n.xz - center.xz);
+                if (dist_from_center > radius) {
+                    let normal = normalize(x_n.xz - center.xz);
+                    let penetration = dist_from_center - radius;
+                    particles[id.x].v.x += wallStiffness * normal.x * penetration;
+                    particles[id.x].v.z += wallStiffness * normal.y * penetration;
+                    particles[id.x].v.x *= physicsProps.collisionDamping;  // Configurable damping
+                    particles[id.x].v.z *= physicsProps.collisionDamping;  // Configurable damping
+                }
+                if (x_n.y < 3.0) { 
+                    particles[id.x].v.y += wallStiffness * (3.0 - x_n.y); 
+                    particles[id.x].v.y *= physicsProps.collisionDamping * 0.5;  // Bottom damping (50% of normal)
+                }
+                if (x_n.y > height) { 
+                    particles[id.x].v.y += wallStiffness * (height - x_n.y); 
+                    particles[id.x].v.y *= physicsProps.collisionDamping;  // Configurable damping
+                }
+            }
+            case 2u: { // Sphere
+                let center = realBoxSize * 0.5;
+                let radius = shapeParams.sphereRadius;
+                let dist_from_center = length(x_n - center);
+                
+                if (dist_from_center > radius) {
+                    let normal = normalize(x_n - center);
+                    let penetration = dist_from_center - radius;
+                    particles[id.x].v += wallStiffness * normal * penetration;
+                    particles[id.x].v *= physicsProps.collisionDamping;
+                }
+            }
+            case 3u: { // Cone
+                let center = realBoxSize * 0.5;
+                let radius = min(realBoxSize.x, realBoxSize.z) * 0.4;
+                let height_factor = x_n.y / realBoxSize.y;
+                let current_radius = radius * height_factor;
+                let dist_from_center = length(x_n.xz - center.xz);
+                if (dist_from_center > current_radius) {
+                    let normal = normalize(x_n.xz - center.xz);
+                    let penetration = dist_from_center - current_radius;
+                    particles[id.x].v.x += wallStiffness * normal.x * penetration;
+                    particles[id.x].v.z += wallStiffness * normal.y * penetration;
+                    particles[id.x].v.x *= physicsProps.collisionDamping;  // Configurable damping
+                    particles[id.x].v.z *= physicsProps.collisionDamping;  // Configurable damping
+                }
+                if (x_n.y < 3.0) { 
+                    particles[id.x].v.y += wallStiffness * (3.0 - x_n.y); 
+                    particles[id.x].v.y *= physicsProps.collisionDamping * 0.5;  // Bottom damping (50% of normal)
+                }
+                if (x_n.y > realBoxSize.y - 4.0) { 
+                    particles[id.x].v.y += wallStiffness * (realBoxSize.y - 4.0 - x_n.y); 
+                    particles[id.x].v.y *= physicsProps.collisionDamping;  // Configurable damping
+                }
+            }
+            default: { // Default to box
+                if (x_n.x < 3.0) { 
+                    particles[id.x].v.x += wallStiffness * (3.0 - x_n.x); 
+                    particles[id.x].v.x *= physicsProps.collisionDamping;  // Configurable damping
+                }
+                if (x_n.x > realBoxSize.x - 4.0) { 
+                    particles[id.x].v.x += wallStiffness * (realBoxSize.x - 4.0 - x_n.x); 
+                    particles[id.x].v.x *= physicsProps.collisionDamping;  // Configurable damping
+                }
+                if (x_n.y < 3.0) { 
+                    particles[id.x].v.y += wallStiffness * (3.0 - x_n.y); 
+                    particles[id.x].v.y *= physicsProps.collisionDamping * 0.5;  // Bottom damping (50% of normal)
+                }
+                if (x_n.y > realBoxSize.y - 4.0) { 
+                    particles[id.x].v.y += wallStiffness * (realBoxSize.y - 4.0 - x_n.y); 
+                    particles[id.x].v.y *= physicsProps.collisionDamping;  // Configurable damping
+                }
+                if (x_n.z < 3.0) { 
+                    particles[id.x].v.z += wallStiffness * (3.0 - x_n.z); 
+                    particles[id.x].v.z *= physicsProps.collisionDamping;  // Configurable damping
+                }
+                if (x_n.z > realBoxSize.z - 4.0) { 
+                    particles[id.x].v.z += wallStiffness * (realBoxSize.z - 4.0 - x_n.z); 
+                    particles[id.x].v.z *= physicsProps.collisionDamping;  // Configurable damping
+                }
+            }
+        }
     }
 }

@@ -10,6 +10,7 @@ struct RenderUniforms {
     projectionMatrix: mat4x4f, 
     viewMatrix: mat4x4f, 
     invViewMatrix: mat4x4f, 
+    gravity: f32, 
 }
 
 @group(0) @binding(0) var depthTexture: texture_2d<f32>;
@@ -33,7 +34,7 @@ fn computeViewPosFromUVDepth(texCoord: vec2f, depth: f32) -> vec3f {
 }
 
 fn decodeFixedPoint(fixedPoint: i32) -> f32 {
-	return f32(fixedPoint) / fixedPointMultiplier;
+    return f32(fixedPoint) / fixedPointMultiplier;
 }
 
 fn getViewPosFromTexCoord(texCoord: vec2f, iuv: vec2f) -> vec3f {

@@ -11,12 +11,26 @@ struct RenderUniforms {
     projectionMatrix: mat4x4f, 
     viewMatrix: mat4x4f, 
     invViewMatrix: mat4x4f, 
+    gravity: f32, 
 }
 struct MouseInfo {
     screenSize: vec2f, 
     mouseCoord : vec2f, 
     mouseVel : vec2f, 
     mouseRadius: f32, 
+}
+
+struct ShapeParams {
+    boxWidth: f32,
+    boxHeight: f32,
+    boxDepth: f32,
+    cylinderRadius: f32,
+    cylinderHeight: f32,
+    sphereRadius: f32,
+    coneRadius: f32,
+    coneHeight: f32,
+    coneTaper: f32,
+    padding: f32,
 }
 
 override fixedPointMultiplier: f32; 
@@ -26,14 +40,16 @@ override fixedPointMultiplier: f32;
 @group(0) @binding(2) var<uniform> initBoxSize: vec3f;
 @group(0) @binding(3) var<uniform> uniforms: RenderUniforms;
 @group(0) @binding(4) var depthTexture: texture_2d<f32>;
-@group(0) @binding(5) var<uniform> mouseInfo: MouseInfo; 
-@group(0) @binding(6) var<uniform> dt: f32; 
+@group(0) @binding(5) var<uniform> mouseInfo: MouseInfo;
+@group(0) @binding(6) var<uniform> dt: f32;
+@group(0) @binding(7) var<uniform> shapeType: u32;
+@group(0) @binding(8) var<uniform> shapeParams: ShapeParams;
 
 fn encodeFixedPoint(floatingPoint: f32) -> i32 {
-	return i32(floatingPoint * fixedPointMultiplier);
+    return i32(floatingPoint * fixedPointMultiplier);
 }
 fn decodeFixedPoint(fixedPoint: i32) -> f32 {
-	return f32(fixedPoint) / fixedPointMultiplier;
+    return f32(fixedPoint) / fixedPointMultiplier;
 }
 
 fn computeViewPosFromUVDepth(tex_coord: vec2f, depth: f32) -> vec3f {
@@ -81,25 +97,94 @@ fn updateGrid(@builtin(global_invocation_id) id: vec3<u32>) {
         let dt = dt;
         let r = mouseInfo.mouseRadius;
 
-        if (cells[id.x].mass > 0) { // 0 との比較は普通にしてよい
-            var floatV: vec3f = vec3f(
-                decodeFixedPoint(cells[id.x].vx), 
-                decodeFixedPoint(cells[id.x].vy), 
-                decodeFixedPoint(cells[id.x].vz)
-            );
-            floatV /= decodeFixedPoint(cells[id.x].mass);
+        // Early exit for cells with no mass - avoid unnecessary calculations
+        if (cells[id.x].mass <= 0) {
+            return;
+        }
+        
+        var floatV: vec3f = vec3f(
+            decodeFixedPoint(cells[id.x].vx), 
+            decodeFixedPoint(cells[id.x].vy), 
+            decodeFixedPoint(cells[id.x].vz)
+        );
+        floatV /= decodeFixedPoint(cells[id.x].mass);
 
-            let strength = smoothstep(r*r, 0., cellSquareDistToMouse) * 0.2;   
-            cells[id.x].vx = encodeFixedPoint(floatV.x + strength * forceDir.x); 
-            cells[id.x].vy = encodeFixedPoint(floatV.y + strength * forceDir.y - 0.40 * dt); 
-            cells[id.x].vz = encodeFixedPoint(floatV.z + strength * forceDir.z); 
+        // Constants for better maintainability
+        const MOUSE_FORCE_STRENGTH = 0.2;
+        const MIN_BOUNDARY_DISTANCE = 2;
+        
+        let strength = smoothstep(r*r, 0., cellSquareDistToMouse) * MOUSE_FORCE_STRENGTH;   
+        cells[id.x].vx = encodeFixedPoint(floatV.x + strength * forceDir.x); 
+        cells[id.x].vy = encodeFixedPoint(floatV.y + strength * forceDir.y + uniforms.gravity * dt); 
+        cells[id.x].vz = encodeFixedPoint(floatV.z + strength * forceDir.z); 
 
-            var x: i32 = i32(id.x) / i32(initBoxSize.z) / i32(initBoxSize.y);
-            var y: i32 = (i32(id.x) / i32(initBoxSize.z)) % i32(initBoxSize.y);
-            var z: i32 = i32(id.x) % i32(initBoxSize.z);
-            if (x < 2 || x > i32(ceil(realBoxSize.x) - 3)) { cells[id.x].vx = 0; } 
-            if (y < 2 || y > i32(ceil(realBoxSize.y) - 3)) { cells[id.x].vy = 0; }
-            if (z < 2 || z > i32(ceil(realBoxSize.z) - 3)) { cells[id.x].vz = 0; }
+        var x: i32 = i32(id.x) / i32(initBoxSize.z) / i32(initBoxSize.y);
+        var y: i32 = (i32(id.x) / i32(initBoxSize.z)) % i32(initBoxSize.y);
+        var z: i32 = i32(id.x) % i32(initBoxSize.z);
+        
+        // Apply boundary conditions based on shape type
+        switch (shapeType) {
+            case 0u: { // Box
+                let center = realBoxSize * 0.5;
+                let boxWidth = shapeParams.boxWidth;
+                let boxHeight = shapeParams.boxHeight;
+                let boxDepth = shapeParams.boxDepth;
+                let boxStartX = center.x - boxWidth * 0.5;
+                let boxEndX = center.x + boxWidth * 0.5;
+                let boxStartZ = center.z - boxDepth * 0.5;
+                let boxEndZ = center.z + boxDepth * 0.5;
+                
+                // Optimized boundary checks - avoid redundant f32() conversions
+                let fx = f32(x);
+                let fy = f32(y);
+                let fz = f32(z);
+                
+                if (fx < boxStartX || fx > boxEndX) { cells[id.x].vx = 0; }
+                if (y < MIN_BOUNDARY_DISTANCE || fy > boxHeight) { cells[id.x].vy = 0; }
+                if (fz < boxStartZ || fz > boxEndZ) { cells[id.x].vz = 0; }
+            }
+            case 1u: { // Cylinder
+                let center = realBoxSize * 0.5;
+                let radius = shapeParams.cylinderRadius;
+                let height = shapeParams.cylinderHeight;
+                let cell_pos = vec3f(f32(x), f32(y), f32(z));
+                let dist_from_center = length(cell_pos.xz - center.xz);
+                if (dist_from_center > radius) { 
+                    cells[id.x].vx = 0; 
+                    cells[id.x].vz = 0; 
+                }
+                if (y < 2 || f32(y) > height) { cells[id.x].vy = 0; }
+            }
+            case 2u: { // Sphere
+                let center = realBoxSize * 0.5;
+                let radius = shapeParams.sphereRadius;
+                let cell_pos = vec3f(f32(x), f32(y), f32(z));
+                let dist_from_center = length(cell_pos - center);
+                
+                if (dist_from_center > radius) { 
+                    cells[id.x].vx = 0; 
+                    cells[id.x].vy = 0; 
+                    cells[id.x].vz = 0; 
+                }
+            }
+            case 3u: { // Cone
+                let center = realBoxSize * 0.5;
+                let radius = min(realBoxSize.x, realBoxSize.z) * 0.4;
+                let cell_pos = vec3f(f32(x), f32(y), f32(z));
+                let height_factor = cell_pos.y / realBoxSize.y;
+                let current_radius = radius * height_factor;
+                let dist_from_center = length(cell_pos.xz - center.xz);
+                if (dist_from_center > current_radius) { 
+                    cells[id.x].vx = 0; 
+                    cells[id.x].vz = 0; 
+                }
+                if (y < 2 || y > i32(ceil(realBoxSize.y) - 3)) { cells[id.x].vy = 0; }
+            }
+            default: { // Default to box
+                if (x < 2 || x > i32(ceil(realBoxSize.x) - 3)) { cells[id.x].vx = 0; }
+                if (y < 2 || y > i32(ceil(realBoxSize.y) - 3)) { cells[id.x].vy = 0; }
+                if (z < 2 || z > i32(ceil(realBoxSize.z) - 3)) { cells[id.x].vz = 0; }
+            }
         }
     }
 }

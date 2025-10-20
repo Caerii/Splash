@@ -66,21 +66,21 @@ export class Camera {
         this.isDragging = false
         this.prevX = 0
         this.prevY = 0
-        this.currentXtheta = -Math.PI / 2 * 1
-        this.currentYtheta = -Math.PI / 12 * 0.8
+        this.currentXtheta = -Math.PI / 4 * 1  // More isometric angle
+        this.currentYtheta = -Math.PI / 6 * 1  // More isometric angle
         // this.currentYtheta = 0
-        this.maxYTheta = -Math.PI / 12. * 0.8
-        this.minYTheta = -0.99 * Math.PI / 2.
+        this.maxYTheta = -Math.PI / 12. * 0.5  // Reduced vertical range for more isometric view
+        this.minYTheta = -Math.PI / 3.         // Reduced vertical range for more isometric view
         this.sensitivity = 0.005
         this.currentDistance = initDistance
-        this.maxDistance = 1.3 * this.currentDistance
-        this.minDistance = 0.8 * this.currentDistance
+        this.maxDistance = 2.0 * this.currentDistance  // Allow more zoom out
+        this.minDistance = 0.5 * this.currentDistance  // Allow more zoom in
         this.target = target
         this.fov = fov
         this.zoomRate = zoomRate
 
         const aspect = this.canvas.clientWidth / this.canvas.clientHeight
-        const projection = mat4.perspective(fov, aspect, 0.1, 300) 
+        const projection = mat4.perspective(fov, aspect, 0.1, 10000)  // Much larger far clipping plane for distant camera 
         renderUniformsViews.projection_matrix.set(projection)
         renderUniformsViews.inv_projection_matrix.set(mat4.inverse(projection))
         this.recalculateView()

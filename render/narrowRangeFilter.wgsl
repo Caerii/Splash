@@ -19,7 +19,7 @@ struct FilterUniforms {
 fn fs(input: FragmentInput) -> @location(0) vec4f {
     let depth: f32 = abs(textureLoad(depthTexture, vec2u(input.iuv), 0).r);
 
-    if (depth >= 1e4) {
+    if (depth >= 1e6) {  // Increased depth threshold for distant camera
         return vec4f(vec3f(depth), 1.);
     }
 
