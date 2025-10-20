@@ -12,8 +12,8 @@ export const SIMULATION = {
 export const PHYSICS = {
     DEFAULT_GRAVITY: -0.40,
     DEFAULT_VISCOSITY: 0.995,
-    DEFAULT_WALL_STIFFNESS: 0.2,
-    DEFAULT_COLLISION_DAMPING: 0.7,
+    DEFAULT_WALL_STIFFNESS: 0.3, // Increased for more responsive boundaries
+    DEFAULT_COLLISION_DAMPING: 0.9, // Reduced from 0.7 to 0.9 for less sticking
     DEFAULT_VELOCITY_CAP: 25.0,
     DEFAULT_PARTICLE_SIZE: 0.9,
     DEFAULT_FLIP_SPEED: 0.5,

@@ -103,6 +103,12 @@ fn g2p(@builtin(global_invocation_id) id: vec3<u32>) {
             particles[id.x].v = normalize(particles[id.x].v) * physicsProps.velocityCap;
         }
         
+        // Add minimum velocity threshold to prevent particles from getting completely stuck
+        const MIN_VELOCITY = 0.05;
+        if (velocity_magnitude < MIN_VELOCITY && velocity_magnitude > 0.001) {
+            particles[id.x].v = normalize(particles[id.x].v) * MIN_VELOCITY;
+        }
+        
         particles[id.x].position += particles[id.x].v * dt;
         
         // Apply boundary conditions (configurable)
@@ -155,10 +161,23 @@ fn g2p(@builtin(global_invocation_id) id: vec3<u32>) {
                 if (dist_from_center > radius) {
                     let normal = normalize(x_n.xz - center.xz);
                     let penetration = dist_from_center - radius;
-                    particles[id.x].v.x += wallStiffness * normal.x * penetration;
-                    particles[id.x].v.z += wallStiffness * normal.y * penetration;
-                    particles[id.x].v.x *= physicsProps.collisionDamping;  // Configurable damping
-                    particles[id.x].v.z *= physicsProps.collisionDamping;  // Configurable damping
+                    
+                    // Move particle back to cylinder surface
+                    particles[id.x].position.x = center.x + normal.x * radius;
+                    particles[id.x].position.z = center.z + normal.y * radius;
+                    
+                    // Apply improved collision response
+                    let velocity_magnitude = length(particles[id.x].v);
+                    if (velocity_magnitude > 0.1) {
+                        let normal_velocity = dot(particles[id.x].v.xz, normal);
+                        let tangential_velocity = particles[id.x].v.xz - normal * normal_velocity;
+                        
+                        // Preserve tangential velocity, reduce normal velocity
+                        particles[id.x].v.x = tangential_velocity.x * 0.95 + normal.x * normal_velocity * 0.1;
+                        particles[id.x].v.z = tangential_velocity.y * 0.95 + normal.y * normal_velocity * 0.1;
+                        particles[id.x].v.x += wallStiffness * normal.x * penetration * 0.5;
+                        particles[id.x].v.z += wallStiffness * normal.y * penetration * 0.5;
+                    }
                 }
                 if (x_n.y < 3.0) { 
                     particles[id.x].v.y += wallStiffness * (3.0 - x_n.y); 
@@ -177,8 +196,29 @@ fn g2p(@builtin(global_invocation_id) id: vec3<u32>) {
                 if (dist_from_center > radius) {
                     let normal = normalize(x_n - center);
                     let penetration = dist_from_center - radius;
-                    particles[id.x].v += wallStiffness * normal * penetration;
-                    particles[id.x].v *= physicsProps.collisionDamping;
+                    
+                    // Move particle back to sphere surface
+                    particles[id.x].position = center + normal * radius;
+                    
+                    // Apply boundary force with reduced normal component for sliding
+                    let velocity_magnitude = length(particles[id.x].v);
+                    if (velocity_magnitude > 0.1) { // Only apply forces if particle has significant velocity
+                        let normal_velocity = dot(particles[id.x].v, normal);
+                        let tangential_velocity = particles[id.x].v - normal * normal_velocity;
+                        
+                        // Reduce normal velocity more aggressively, preserve tangential velocity
+                        particles[id.x].v = tangential_velocity * 0.95 + normal * normal_velocity * 0.1;
+                        
+                        // Apply restorative force only in normal direction
+                        particles[id.x].v += wallStiffness * normal * penetration * 0.5;
+                    } else {
+                        // For very slow particles, give them a small random velocity to break free
+                        particles[id.x].v += normal * 0.5 + vec3f(
+                            (fract(sin(f32(id.x) * 12.9898) * 43758.5453) - 0.5) * 0.2,
+                            (fract(sin(f32(id.x) * 78.233) * 43758.5453) - 0.5) * 0.2,
+                            (fract(sin(f32(id.x) * 37.719) * 43758.5453) - 0.5) * 0.2
+                        );
+                    }
                 }
             }
             case 3u: { // Cone
